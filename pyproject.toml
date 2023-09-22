@@ -17,14 +17,21 @@ dependencies = [
 
 [tool.ruff]
 line-length = 100
-select = ["A", "B", "C",
-#    "D",
-    "E", "F", "G", "I", "N", "Q", "S", "T", "W", "ANN", "ARG", "BLE", "COM", "DJ", "DTZ", "EM", "ERA", "EXE", "FBT", "ICN", "INP", "ISC", "NPY", "PD", "PGH", "PIE", "PL", "PT", "PTH", "PYI", "RET", "RSE", "RUF", "SIM", "SLF", "TCH", "TID", "TRY", "UP", "YTT"]
+select = ["ALL"]
 ignore = [
-    "D104",
+    "D100", # Missing docstring in public module # TODO: remove
+    "D101", # Missing docstring in public class # TODO: remove
+    "D102", # Missing docstring in public method # TODO: remove
+    "D103", # Missing docstring in public function # TODO: remove
+    "D104", # Missing docstring in public package # TODO: remove
+    "D105", # Missing docstring in magic method# TODO: remove
+    "D107", # Missing docstring in `__init__` # TODO: remove
     "D213", # `multi-line-summary-second-line`,
     "D203", # `one-blank-line-before-class`
     "ANN101" # Missing type annotation for `self` in method
 ]
+
+target-version = "py311"
+
 [tool.black]
 line-length = 100

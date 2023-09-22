@@ -1,5 +1,5 @@
+from collections.abc import Callable
 from functools import partial
-from typing import Callable, Tuple
 
 import distrax
 import jax
@@ -37,7 +37,7 @@ def sample_actions_jit(
     actor_apply_fn: Callable[..., distrax.Distribution],
     actor_params: Params,
     observations: np.ndarray,
-) -> Tuple[PRNGKey, jnp.ndarray]:
+) -> tuple[PRNGKey, jnp.ndarray]:
     dist = actor_apply_fn({"params": actor_params}, observations)
     rng, key = jax.random.split(rng)
     return rng, dist.sample(seed=key)

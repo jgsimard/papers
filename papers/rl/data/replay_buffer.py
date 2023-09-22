@@ -1,5 +1,3 @@
-from typing import Union
-
 import gymnasium as gym
 import numpy as np
 
@@ -9,7 +7,7 @@ from papers.rl.data.dataset import Dataset, DatasetDict
 def _init_replay_dict(
     obs_space: gym.Space,
     capacity: int,
-) -> Union[np.ndarray, DatasetDict]:
+) -> np.ndarray | DatasetDict:
     if isinstance(obs_space, gym.spaces.Box):
         return np.empty((capacity, *obs_space.shape), dtype=obs_space.dtype)
     if isinstance(obs_space, gym.spaces.Dict):

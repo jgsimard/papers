@@ -1,4 +1,4 @@
-from typing import Dict, Iterable, Tuple, Union
+from collections.abc import Iterable
 
 import numpy as np
 from flax.core import frozen_dict
@@ -6,7 +6,7 @@ from gym.utils import seeding
 
 from papers.types import DataType
 
-DatasetDict = Dict[str, DataType]
+DatasetDict = dict[str, DataType]
 
 
 def _check_lengths(dataset_dict: DatasetDict, dataset_len: int | None = None) -> int:
@@ -40,7 +40,7 @@ def _subselect(dataset_dict: DatasetDict, index: np.ndarray) -> DatasetDict:
 
 
 def _sample(
-    dataset_dict: Union[np.ndarray, DatasetDict],
+    dataset_dict: np.ndarray | DatasetDict,
     index: np.ndarray,
 ) -> DatasetDict:
     if isinstance(dataset_dict, np.ndarray):
@@ -104,7 +104,7 @@ class Dataset:
 
         return frozen_dict.freeze(batch)
 
-    def split(self, ratio: float) -> Tuple["Dataset", "Dataset"]:
+    def split(self, ratio: float) -> tuple["Dataset", "Dataset"]:
         if not (0.0 < ratio < 1.0):  # noqa: PLR2004
             msg = "Bad split ratio"
             raise ValueError(msg)
@@ -118,7 +118,7 @@ class Dataset:
         test_dataset_dict = _subselect(self.dataset_dict, test_index)
         return Dataset(train_dataset_dict), Dataset(test_dataset_dict)
 
-    def _trajectory_boundaries_and_returns(self) -> Tuple[list, list, list]:
+    def _trajectory_boundaries_and_returns(self) -> tuple[list, list, list]:
         episode_starts = [0]
         episode_ends = []
 
