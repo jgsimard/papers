@@ -28,7 +28,9 @@ ignore = [
     "D107", # Missing docstring in `__init__` # TODO: remove
     "D213", # `multi-line-summary-second-line`,
     "D203", # `one-blank-line-before-class`
-    "ANN101" # Missing type annotation for `self` in method
+    "ANN101", # Missing type annotation for `self` in method
+    "FIX002", # Line contains TODO, consider resolving the issue
+    "TD003", # Missing issue link on the line following this TODO
 ]
 
 target-version = "py311"
