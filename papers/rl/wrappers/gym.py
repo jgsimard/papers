@@ -15,4 +15,3 @@ def wrap_gym(env: gym.Env, rescale_actions: bool = True) -> gym.Env:  # noqa: FB
         env = FlattenObservation(env)
 
     return gym.wrappers.ClipAction(env)
-

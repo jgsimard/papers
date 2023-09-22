@@ -40,7 +40,8 @@ def _subselect(dataset_dict: DatasetDict, index: np.ndarray) -> DatasetDict:
 
 
 def _sample(
-        dataset_dict: Union[np.ndarray, DatasetDict], index: np.ndarray,
+    dataset_dict: Union[np.ndarray, DatasetDict],
+    index: np.ndarray,
 ) -> DatasetDict:
     if isinstance(dataset_dict, np.ndarray):
         return dataset_dict[index]
@@ -79,10 +80,10 @@ class Dataset:
         return self.dataset_len
 
     def sample(
-            self,
-            batch_size: int,
-            keys: Iterable[str] | None = None,
-            index: np.ndarray | None = None,
+        self,
+        batch_size: int,
+        keys: Iterable[str] | None = None,
+        index: np.ndarray | None = None,
     ) -> frozen_dict.FrozenDict:
         if index is None:
             if hasattr(self.np_random, "integers"):
@@ -104,14 +105,14 @@ class Dataset:
         return frozen_dict.freeze(batch)
 
     def split(self, ratio: float) -> Tuple["Dataset", "Dataset"]:
-        if not (0.0 < ratio < 1.0) :  # noqa: PLR2004
+        if not (0.0 < ratio < 1.0):  # noqa: PLR2004
             msg = "Bad split ratio"
             raise ValueError(msg)
 
         index = np.arange(len(self), dtype=np.int32)
         self.np_random.shuffle(index)
         train_index = index[: int(self.dataset_len * ratio)]
-        test_index = index[int(self.dataset_len * ratio):]
+        test_index = index[int(self.dataset_len * ratio) :]
 
         train_dataset_dict = _subselect(self.dataset_dict, train_index)
         test_dataset_dict = _subselect(self.dataset_dict, test_index)
@@ -137,8 +138,10 @@ class Dataset:
         return episode_starts, episode_ends, episode_returns
 
     def filter(  # noqa: A003
-            self, percentile: float | None = None, threshold: float | None = None,
-    ) -> None :
+        self,
+        percentile: float | None = None,
+        threshold: float | None = None,
+    ) -> None:
         if (percentile is None) and (threshold is None):
             msg = "One of 'percentile' or 'threshold should be a number"
             raise ValueError(msg)
@@ -155,11 +158,11 @@ class Dataset:
         if percentile is not None:
             threshold = np.percentile(episode_returns, 100 - percentile)
 
-        bool_index = np.full((len(self),), fill_value = False, dtype=bool)
+        bool_index = np.full((len(self),), fill_value=False, dtype=bool)
 
         for i in range(len(episode_returns)):
             if episode_returns[i] >= threshold:
-                bool_index[episode_starts[i]: episode_ends[i]] = True
+                bool_index[episode_starts[i] : episode_ends[i]] = True
 
         self.dataset_dict = _subselect(self.dataset_dict, bool_index)
 

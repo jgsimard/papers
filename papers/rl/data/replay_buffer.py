@@ -7,7 +7,8 @@ from papers.rl.data.dataset import Dataset, DatasetDict
 
 
 def _init_replay_dict(
-    obs_space: gym.Space, capacity: int,
+    obs_space: gym.Space,
+    capacity: int,
 ) -> Union[np.ndarray, DatasetDict]:
     if isinstance(obs_space, gym.spaces.Box):
         return np.empty((capacity, *obs_space.shape), dtype=obs_space.dtype)
@@ -20,7 +21,9 @@ def _init_replay_dict(
 
 
 def _insert_recursively(
-    dataset_dict: DatasetDict, data_dict: DatasetDict, insert_index: int,
+    dataset_dict: DatasetDict,
+    data_dict: DatasetDict,
+    insert_index: int,
 ) -> None:
     if isinstance(dataset_dict, np.ndarray):
         dataset_dict[insert_index] = data_dict

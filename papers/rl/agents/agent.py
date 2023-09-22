@@ -13,7 +13,9 @@ class Agent:
 
     def eval_actions(self, observations: np.ndarray) -> np.ndarray:
         actions = eval_actions_jit(
-            self._actor.apply_fn, self._actor.params, observations,
+            self._actor.apply_fn,
+            self._actor.params,
+            observations,
         )
 
         return np.asarray(actions)
@@ -23,7 +25,10 @@ class Agent:
 
     def sample_actions(self, observations: np.ndarray) -> np.ndarray:
         rng, actions = sample_actions_jit(
-            self._rng, self._actor.apply_fn, self._actor.params, observations,
+            self._rng,
+            self._actor.apply_fn,
+            self._actor.params,
+            observations,
         )
 
         self._rng = rng
