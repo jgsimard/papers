@@ -1,0 +1,30 @@
+[project]
+name = "papers"
+version = "0.0.1"
+dependencies = [
+    "envpool >= 0.8.3",
+    "flax >= 0.7.4",
+    "jax >= 0.4.14",
+    "mypy >= 1.5.1",
+    "optax >= 0.1.7",
+    "ruff >= 0.0.290",
+    "tqdm >= 4.66.1",
+    "dm-control >= 1.0.14",
+    "rlax >= 0.1.6",
+    "hydra-core >= 1.3.2",
+    "tensorboardX >= 2.6.2.2"
+]
+
+[tool.ruff]
+line-length = 100
+select = ["A", "B", "C",
+#    "D",
+    "E", "F", "G", "I", "N", "Q", "S", "T", "W", "ANN", "ARG", "BLE", "COM", "DJ", "DTZ", "EM", "ERA", "EXE", "FBT", "ICN", "INP", "ISC", "NPY", "PD", "PGH", "PIE", "PL", "PT", "PTH", "PYI", "RET", "RSE", "RUF", "SIM", "SLF", "TCH", "TID", "TRY", "UP", "YTT"]
+ignore = [
+    "D104",
+    "D213", # `multi-line-summary-second-line`,
+    "D203", # `one-blank-line-before-class`
+    "ANN101" # Missing type annotation for `self` in method
+]
+[tool.black]
+line-length = 100
