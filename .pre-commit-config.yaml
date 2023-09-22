@@ -13,16 +13,9 @@ repos:
     # Ruff version.
     rev: v0.0.290
     hooks:
-      - id: ruff
-  - repo: https://github.com/psf/black-pre-commit-mirror
-    rev: 23.9.1
-    hooks:
-      - id: black
-        # It is recommended to specify the latest version of Python
-        # supported by your project here, or alternatively use
-        # pre-commit's default_language_version, see
-        # https://pre-commit.com/#top_level-default_language_version
-        language_version: python3.11
+      - id: ruff # linter
+        args: [--fix, --exit-non-zero-on-fix] # enable autofix lints
+      - id: ruff-format # formater
   - repo: local
     hooks:
       - id: tests
