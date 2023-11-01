@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 
 import flax.linen as nn
-import jax.numpy as jnp
+from jax import Array
 
 from jaxrl5.networks import default_init
 
@@ -13,10 +13,15 @@ class D4PGEncoder(nn.Module):
     padding: str = "VALID"
 
     @nn.compact
-    def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
+    def __call__(self, x: Array) -> Array:
         assert len(self.features) == len(self.strides)
 
-        for features, filter_, stride in zip(self.features, self.filters, self.strides):
+        for features, filter_, stride in zip(
+            self.features,
+            self.filters,
+            self.strides,
+            strict=True,
+        ):
             x = nn.Conv(
                 features,
                 kernel_size=(filter_, filter_),

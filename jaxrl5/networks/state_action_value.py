@@ -1,5 +1,6 @@
 import flax.linen as nn
 import jax.numpy as jnp
+from jax import Array
 
 from jaxrl5.networks import default_init
 
@@ -10,11 +11,11 @@ class StateActionValue(nn.Module):
     @nn.compact
     def __call__(
         self,
-        observations: jnp.ndarray,
-        actions: jnp.ndarray,
+        observations: Array,
+        actions: Array,
         *args,
         **kwargs,
-    ) -> jnp.ndarray:
+    ) -> Array:
         inputs = jnp.concatenate([observations, actions], axis=-1)
         outputs = self.base_cls()(inputs, *args, **kwargs)
 

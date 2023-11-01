@@ -1,24 +1,21 @@
 import functools
-from typing import Optional
-
-import tensorflow_probability
-
-from jaxrl5.distributions.tanh_transformed import TanhTransformedDistribution
-
-tfp = tensorflow_probability.substrates.jax
-tfd = tfp.distributions
 
 import flax.linen as nn
 import jax.numpy as jnp
+import tensorflow_probability
 
+from jaxrl5.distributions.tanh_transformed import TanhTransformedDistribution
 from jaxrl5.networks import default_init
+
+tfp = tensorflow_probability.substrates.jax
+tfd = tfp.distributions
 
 
 class Normal(nn.Module):
     base_cls: type[nn.Module]
     action_dim: int
-    log_std_min: Optional[float] = -20
-    log_std_max: Optional[float] = 2
+    log_std_min: float | None = -20
+    log_std_max: float | None = 2
     state_dependent_std: bool = True
     squash_tanh: bool = False
 
@@ -54,14 +51,7 @@ class Normal(nn.Module):
 
         if self.squash_tanh:
             return TanhTransformedDistribution(distribution)
-            # if output_range is not None:
-            #     lows, highs = output_range
-            # else:
-            #     lows, highs = (-1.0, 1.0)
-
-            # return TanhTransformedDistribution(distribution, low=lows, high=highs)
-        else:
-            return distribution
+        return distribution
 
 
 TanhNormal = functools.partial(Normal, squash_tanh=True)

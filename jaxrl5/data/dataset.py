@@ -1,5 +1,4 @@
 from collections.abc import Iterable
-from typing import Optional, Union
 
 import jax
 import jax.numpy as jnp
@@ -12,7 +11,7 @@ from jaxrl5.types import DataType
 DatasetDict = dict[str, DataType]
 
 
-def _check_lengths(dataset_dict: DatasetDict, dataset_len: Optional[int] = None) -> int:
+def _check_lengths(dataset_dict: DatasetDict, dataset_len: int | None = None) -> int:
     for v in dataset_dict.values():
         if isinstance(v, dict):
             dataset_len = dataset_len or _check_lengths(v, dataset_len)
@@ -21,7 +20,8 @@ def _check_lengths(dataset_dict: DatasetDict, dataset_len: Optional[int] = None)
             dataset_len = dataset_len or item_len
             assert dataset_len == item_len, "Inconsistent item lengths in the dataset."
         else:
-            raise TypeError("Unsupported type.")
+            msg = "Unsupported type."
+            raise TypeError(msg)
     return dataset_len
 
 
@@ -33,28 +33,30 @@ def _subselect(dataset_dict: DatasetDict, index: np.ndarray) -> DatasetDict:
         elif isinstance(v, np.ndarray):
             new_v = v[index]
         else:
-            raise TypeError("Unsupported type.")
+            msg = "Unsupported type."
+            raise TypeError(msg)
         new_dataset_dict[k] = new_v
     return new_dataset_dict
 
 
 def _sample(
-    dataset_dict: Union[np.ndarray, DatasetDict],
+    dataset_dict: np.ndarray | DatasetDict,
     indx: np.ndarray,
 ) -> DatasetDict:
     if isinstance(dataset_dict, np.ndarray):
         return dataset_dict[indx]
-    elif isinstance(dataset_dict, dict):
+    if isinstance(dataset_dict, dict):
         batch = {}
         for k, v in dataset_dict.items():
             batch[k] = _sample(v, indx)
     else:
-        raise TypeError("Unsupported type.")
+        msg = "Unsupported type."
+        raise TypeError(msg)
     return batch
 
 
 class Dataset:
-    def __init__(self, dataset_dict: DatasetDict, seed: Optional[int] = None):
+    def __init__(self, dataset_dict: DatasetDict, seed: int | None = None) -> None:
         self.dataset_dict = dataset_dict
         self.dataset_len = _check_lengths(dataset_dict)
 
@@ -71,7 +73,7 @@ class Dataset:
             self.seed()
         return self._np_random
 
-    def seed(self, seed: Optional[int] = None) -> list:
+    def seed(self, seed: int | None = None) -> list:
         self._np_random, self._seed = seeding.np_random(seed)
         return [self._seed]
 
@@ -81,8 +83,8 @@ class Dataset:
     def sample(
         self,
         batch_size: int,
-        keys: Optional[Iterable[str]] = None,
-        indx: Optional[np.ndarray] = None,
+        keys: Iterable[str] | None = None,
+        indx: np.ndarray | None = None,
     ) -> frozen_dict.FrozenDict:
         if indx is None:
             if hasattr(self.np_random, "integers"):
@@ -90,7 +92,7 @@ class Dataset:
             else:
                 indx = self.np_random.randint(len(self), size=batch_size)
 
-        batch = dict()
+        batch = {}
 
         if keys is None:
             keys = self.dataset_dict.keys()
@@ -103,7 +105,7 @@ class Dataset:
 
         return frozen_dict.freeze(batch)
 
-    def sample_jax(self, batch_size: int, keys: Optional[Iterable[str]] = None):
+    def sample_jax(self, batch_size: int, keys: Iterable[str] | None = None):
         if not hasattr(self, "rng"):
             self.rng = jax.random.PRNGKey(self._seed or 42)
 
@@ -133,9 +135,7 @@ class Dataset:
         return sample
 
     def split(self, ratio: float) -> tuple["Dataset", "Dataset"]:
-        assert ratio > 0 and ratio < 1
-        train_index = np.index_exp[: int(self.dataset_len * ratio)]
-        test_index = np.index_exp[int(self.dataset_len * ratio) :]
+        assert 0 < ratio < 1
 
         index = np.arange(len(self), dtype=np.int32)
         self.np_random.shuffle(index)
@@ -165,10 +165,10 @@ class Dataset:
 
         return episode_starts, episode_ends, episode_returns
 
-    def filter(
+    def filter(  # noqa: A003 Class attribute `filter` is shadowing a Python builtin
         self,
-        take_top: Optional[float] = None,
-        threshold: Optional[float] = None,
+        take_top: float | None = None,
+        threshold: float | None = None,
     ):
         assert (take_top is None and threshold is not None) or (
             take_top is not None and threshold is None

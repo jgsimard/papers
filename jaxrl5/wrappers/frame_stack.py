@@ -6,7 +6,13 @@ from gym.spaces import Box
 
 
 class FrameStack(gym.Wrapper):
-    def __init__(self, env, num_stack: int, stacking_key: str = "pixels"):
+    def __init__(
+        self,
+        env,
+        num_stack: int,
+        stacking_key: str = "pixels",
+        seed: int | None = None,
+    ) -> None:
         super().__init__(env)
         self._num_stack = num_stack
         self._stacking_key = stacking_key
@@ -22,20 +28,21 @@ class FrameStack(gym.Wrapper):
         self.observation_space.spaces[stacking_key] = new_pixel_obs_spaces
 
         self._frames = collections.deque(maxlen=num_stack)
+        self.seed = seed
 
     def reset(self):
-        obs = self.env.reset()
-        for i in range(self._num_stack):
+        obs, info = self.env.reset(seed=self.seed)
+        for _ in range(self._num_stack):
             self._frames.append(obs[self._stacking_key])
         obs[self._stacking_key] = self.frames
-        return obs
+        return obs, info
 
     @property
     def frames(self):
         return np.stack(self._frames, axis=-1)
 
     def step(self, action):
-        obs, reward, done, info = self.env.step(action)
+        obs, reward, terminated, truncated, info = self.env.step(action)
         self._frames.append(obs[self._stacking_key])
         obs[self._stacking_key] = self.frames
-        return obs, reward, done, info
+        return obs, reward, terminated, truncated, info

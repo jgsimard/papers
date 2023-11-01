@@ -21,17 +21,17 @@ def _convert_obs(obs):
     if isinstance(obs, np.ndarray):
         if obs.dtype == np.float64:
             return obs.astype(np.float32)
-        else:
-            return obs
-    elif isinstance(obs, dict):
+        return obs
+    if isinstance(obs, dict):
         obs = copy.copy(obs)
         for k, v in obs.items():
             obs[k] = _convert_obs(v)
         return obs
+    raise TypeError
 
 
 class SinglePrecision(gym.ObservationWrapper):
-    def __init__(self, env):
+    def __init__(self, env) -> None:
         super().__init__(env)
 
         obs_space = copy.deepcopy(self.env.observation_space)

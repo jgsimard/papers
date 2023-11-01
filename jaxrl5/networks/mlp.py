@@ -1,26 +1,25 @@
 from collections.abc import Callable, Sequence
-from typing import Optional
 
 import flax.linen as nn
 import jax.numpy as jnp
+from jax import Array
 
 
-# default_init = nn.initializers.xavier_uniform
-def default_init(scale: Optional[float] = jnp.sqrt(2)):
+def default_init(scale: float | None = jnp.sqrt(2)):
     return nn.initializers.orthogonal(scale)
 
 
 class MLP(nn.Module):
     hidden_dims: Sequence[int]
-    activations: Callable[[jnp.ndarray], jnp.ndarray] = nn.relu
+    activations: Callable[[Array], Array] = nn.relu
     activate_final: bool = False
     use_layer_norm: bool = False
-    scale_final: Optional[float] = None
-    dropout_rate: Optional[float] = None
+    scale_final: float | None = None
+    dropout_rate: float | None = None
     use_pnorm: bool = False
 
     @nn.compact
-    def __call__(self, x: jnp.ndarray, training: bool = False) -> jnp.ndarray:
+    def __call__(self, x: Array, training: bool = False) -> Array:
         for i, size in enumerate(self.hidden_dims):
             if i + 1 == len(self.hidden_dims) and self.scale_final is not None:
                 x = nn.Dense(size, kernel_init=default_init(self.scale_final))(x)

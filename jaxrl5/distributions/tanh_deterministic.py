@@ -1,5 +1,5 @@
 import flax.linen as nn
-import jax.numpy as jnp
+from jax import Array
 
 from jaxrl5.networks import default_init
 
@@ -9,7 +9,7 @@ class TanhDeterministic(nn.Module):
     action_dim: int
 
     @nn.compact
-    def __call__(self, inputs, *args, **kwargs) -> jnp.ndarray:
+    def __call__(self, inputs, *args, **kwargs) -> Array:
         x = self.base_cls()(inputs, *args, **kwargs)
 
         means = nn.Dense(
@@ -17,7 +17,4 @@ class TanhDeterministic(nn.Module):
             kernel_init=default_init(),
             name="OutputDenseMean",
         )(x)
-
-        means = nn.tanh(means)
-
-        return means
+        return nn.tanh(means)

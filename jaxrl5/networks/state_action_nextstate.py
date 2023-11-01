@@ -1,9 +1,7 @@
 import flax.linen as nn
 import jax.numpy as jnp
+from jax import Array
 
-# from jax.nn import tanh
-
-# from jaxrl5.networks import default_init
 my_init = nn.initializers.xavier_uniform
 
 
@@ -14,15 +12,13 @@ class StateActionNextState(nn.Module):
     @nn.compact
     def __call__(
         self,
-        observations: jnp.ndarray,
-        actions: jnp.ndarray,
+        observations: Array,
+        actions: Array,
         *args,
         **kwargs,
-    ) -> jnp.ndarray:
+    ) -> Array:
         inputs = jnp.concatenate([observations, actions], axis=-1)
         outputs = self.base_cls()(inputs, *args, **kwargs)
 
         residual = nn.Dense(self.obs_dim, kernel_init=my_init())(outputs)
-        next_state = observations + residual
-
-        return next_state
+        return observations + residual

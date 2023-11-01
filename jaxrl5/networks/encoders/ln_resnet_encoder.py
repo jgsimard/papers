@@ -6,7 +6,6 @@ from collections.abc import Callable
 from functools import partial
 from typing import Any
 
-import flax.linen as nn
 import jax.numpy as jnp
 from flax import linen as nn
 
@@ -44,8 +43,7 @@ class MyGroupNorm(nn.GroupNorm):
             x = x[jnp.newaxis]
             x = super().__call__(x)
             return x[0]
-        else:
-            return super().__call__(x)
+        return super().__call__(x)
 
 
 class ResNetV2Encoder(nn.Module):

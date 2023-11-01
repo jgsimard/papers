@@ -1,7 +1,6 @@
 from collections.abc import Callable
 from typing import Any
 
-import flax.linen as nn
 import jax.numpy as jnp
 from flax import linen as nn
 
@@ -39,10 +38,9 @@ class MLPResNetV2(nn.Module):
     act: Callable = nn.relu
 
     @nn.compact
-    def __call__(self, x, training=False):
+    def __call__(self, x, _training=False):
         x = nn.Dense(self.features)(x)
         for _ in range(self.num_blocks):
             x = MLPResNetV2Block(self.features, act=self.act)(x)
         x = nn.LayerNorm()(x)
-        x = self.act(x)
-        return x
+        return self.act(x)

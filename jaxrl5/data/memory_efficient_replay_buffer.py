@@ -1,6 +1,5 @@
 import copy
 from collections.abc import Iterable
-from typing import Optional
 
 import gym
 import numpy as np
@@ -18,7 +17,7 @@ class MemoryEfficientReplayBuffer(ReplayBuffer):
         action_space: gym.Space,
         capacity: int,
         pixel_keys: tuple[str, ...] = ("pixels",),
-    ):
+    ) -> None:
         self.pixel_keys = pixel_keys
 
         observation_space = copy.deepcopy(observation_space)
@@ -95,13 +94,14 @@ class MemoryEfficientReplayBuffer(ReplayBuffer):
     def sample(
         self,
         batch_size: int,
-        keys: Optional[Iterable[str]] = None,
-        indx: Optional[np.ndarray] = None,
+        keys: Iterable[str] | None = None,
+        indx: np.ndarray | None = None,
         pack_obs_and_next_obs: bool = False,
     ) -> frozen_dict.FrozenDict:
         """Samples from the replay buffer.
 
         Args:
+        ----
             batch_size: Minibatch size.
             keys: Keys to sample.
             indx: Take indices instead of sampling.
@@ -109,21 +109,20 @@ class MemoryEfficientReplayBuffer(ReplayBuffer):
                 It's useful when they have overlapping frames.
 
         Returns:
+        -------
             A frozen dictionary.
         """
-
         if indx is None:
-            if hasattr(self.np_random, "integers"):
-                indx = self.np_random.integers(len(self), size=batch_size)
-            else:
-                indx = self.np_random.randint(len(self), size=batch_size)
+            randint = (
+                self.np_random.integers
+                if hasattr(self.np_random, "integers")
+                else self.np_random.randint
+            )
+            indx = randint(len(self), size=batch_size)
 
             for i in range(batch_size):
                 while not self._is_correct_index[indx[i]]:
-                    if hasattr(self.np_random, "integers"):
-                        indx[i] = self.np_random.integers(len(self))
-                    else:
-                        indx[i] = self.np_random.randint(len(self))
+                    indx[i] = randint(len(self))
         else:
             raise NotImplementedError
 

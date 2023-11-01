@@ -2,7 +2,6 @@
 
 from collections.abc import Sequence
 from functools import partial
-from typing import Optional
 
 import flax
 import gym
@@ -12,6 +11,7 @@ import numpy as np
 import optax
 from flax import struct
 from flax.training.train_state import TrainState
+from jax import Array
 
 from jaxrl5.agents.agent import Agent
 from jaxrl5.agents.sac.temperature import Temperature
@@ -30,8 +30,7 @@ from jaxrl5.networks import (
 def convert_to_numpy_array(param):
     if isinstance(param, list):
         return jax.tree_map(convert_to_numpy_array, param)
-    else:
-        return jnp.array(param)
+    return jnp.array(param)
 
 
 def tree_multimap(func, tree1, tree2):
@@ -45,14 +44,12 @@ def compute_critic_param_change_norm(before_params, after_params):
         before_params,
         after_params,
     )
-    param_change_norm = jnp.sqrt(jnp.sum(jnp.array(jax.tree_util.tree_leaves(param_squares))))
-    return param_change_norm
+    return jnp.sqrt(jnp.sum(jnp.array(jax.tree_util.tree_leaves(param_squares))))
 
 
 def compute_gradient_norm(grads):
     grad_squares = jax.tree_map(lambda g: jnp.sum(g**2), grads)
-    grad_norm = jnp.sqrt(jnp.sum(jnp.array(jax.tree_util.tree_leaves(grad_squares))))
-    return grad_norm
+    return jnp.sqrt(jnp.sum(jnp.array(jax.tree_util.tree_leaves(grad_squares))))  # grad_norm
 
 
 # From https://colab.research.google.com/github/huggingface/notebooks/blob/master/examples/text_classification_flax.ipynb#scrollTo=ap-zaOyKJDXM
@@ -71,7 +68,7 @@ class SACLearnerWithDynamics(Agent):
     discount: float
     target_entropy: float
     num_qs: int = struct.field(pytree_node=False)
-    num_min_qs: Optional[int] = struct.field(
+    num_min_qs: int | None = struct.field(
         pytree_node=False,
     )  # See M in RedQ https://arxiv.org/abs/2101.05982
     backup_entropy: bool = struct.field(pytree_node=False)
@@ -94,12 +91,12 @@ class SACLearnerWithDynamics(Agent):
         discount: float = 0.99,
         tau: float = 0.005,
         num_qs: int = 2,
-        num_min_qs: Optional[int] = None,
-        critic_dropout_rate: Optional[float] = None,
-        critic_weight_decay: Optional[float] = None,
-        max_gradient_norm: Optional[float] = None,
+        num_min_qs: int | None = None,
+        critic_dropout_rate: float | None = None,
+        critic_weight_decay: float | None = None,
+        max_gradient_norm: float | None = None,
         critic_layer_norm: bool = False,
-        target_entropy: Optional[float] = None,
+        target_entropy: float | None = None,
         init_temperature: float = 1.0,
         backup_entropy: bool = True,
         use_pnorm: bool = False,
@@ -109,9 +106,7 @@ class SACLearnerWithDynamics(Agent):
         exterior_linear_c: float = 0.0,
         exterior_quadratic_c: float = 0.0,
     ):
-        """
-        An implementation of the version of Soft-Actor-Critic described in https://arxiv.org/abs/1812.05905
-        """
+        """An implementation of the version of Soft-Actor-Critic described in https://arxiv.org/abs/1812.05905."""
         action_dim = action_space.shape[-1]
         obs_dim = observation_space.shape[-1]
         observations = observation_space.sample()
@@ -170,14 +165,13 @@ class SACLearnerWithDynamics(Agent):
                     weight_decay=critic_weight_decay,
                     mask=decay_mask_fn,
                 )
+        elif max_gradient_norm is not None:
+            tx = optax.chain(
+                optax.clip_by_global_norm(max_gradient_norm),
+                optax.adam(learning_rate=critic_lr),
+            )
         else:
-            if max_gradient_norm is not None:
-                tx = optax.chain(
-                    optax.clip_by_global_norm(max_gradient_norm),
-                    optax.adam(learning_rate=critic_lr),
-                )
-            else:
-                tx = optax.adam(learning_rate=critic_lr)
+            tx = optax.adam(learning_rate=critic_lr)
 
         critic = TrainState.create(
             apply_fn=critic_def.apply,
@@ -239,29 +233,10 @@ class SACLearnerWithDynamics(Agent):
 
     def reset_actor(
         self,
-        seed: int,
-        observation_space: gym.Space,
         action_space: gym.Space,
         actor_lr: float = 3e-4,
-        critic_lr: float = 3e-4,
-        temp_lr: float = 3e-4,
         hidden_dims: Sequence[int] = (256, 256),
-        discount: float = 0.99,
-        tau: float = 0.005,
-        num_qs: int = 2,
-        num_min_qs: Optional[int] = None,
-        critic_dropout_rate: Optional[float] = None,
-        critic_weight_decay: Optional[float] = None,
-        critic_layer_norm: bool = False,
-        target_entropy: Optional[float] = None,
-        init_temperature: float = 1.0,
-        backup_entropy: bool = True,
         use_pnorm: bool = False,
-        use_critic_resnet: bool = False,
-        interior_linear_c: float = 0.0,
-        interior_quadratic_c: float = 0.0,
-        exterior_linear_c: float = 0.0,
-        exterior_quadratic_c: float = 0.0,
     ):
         action_dim = action_space.shape[-1]
         key, rng = jax.random.split(self.rng)
@@ -286,30 +261,14 @@ class SACLearnerWithDynamics(Agent):
 
     def reset_critic(
         self,
-        seed: int,
-        observation_space: gym.Space,
-        action_space: gym.Space,
-        actor_lr: float = 3e-4,
         critic_lr: float = 3e-4,
-        temp_lr: float = 3e-4,
         hidden_dims: Sequence[int] = (256, 256),
-        discount: float = 0.99,
-        tau: float = 0.005,
-        num_qs: int = 2,
-        num_min_qs: Optional[int] = None,
-        critic_dropout_rate: Optional[float] = None,
-        critic_weight_decay: Optional[float] = None,
+        critic_dropout_rate: float | None = None,
+        critic_weight_decay: float | None = None,
         critic_layer_norm: bool = False,
-        target_entropy: Optional[float] = None,
-        init_temperature: float = 1.0,
-        backup_entropy: bool = True,
         use_pnorm: bool = False,
         use_critic_resnet: bool = False,
-        interior_linear_c: float = 0.0,
-        interior_quadratic_c: float = 0.0,
-        exterior_linear_c: float = 0.0,
-        exterior_quadratic_c: float = 0.0,
-        max_gradient_norm: Optional[float] = None,
+        max_gradient_norm: float | None = None,
     ):
         key, rng = jax.random.split(self.rng)
 
@@ -350,14 +309,13 @@ class SACLearnerWithDynamics(Agent):
                     weight_decay=critic_weight_decay,
                     mask=decay_mask_fn,
                 )
+        elif max_gradient_norm is not None:
+            tx = optax.chain(
+                optax.clip_by_global_norm(max_gradient_norm),
+                optax.adam(learning_rate=critic_lr),
+            )
         else:
-            if max_gradient_norm is not None:
-                tx = optax.chain(
-                    optax.clip_by_global_norm(max_gradient_norm),
-                    optax.adam(learning_rate=critic_lr),
-                )
-            else:
-                tx = optax.adam(learning_rate=critic_lr)
+            tx = optax.adam(learning_rate=critic_lr)
 
         critic = TrainState.create(
             apply_fn=critic_def.apply,
@@ -378,12 +336,12 @@ class SACLearnerWithDynamics(Agent):
     def update_actor(
         self,
         batch: DatasetDict,
-        output_range: Optional[tuple[jnp.ndarray, jnp.ndarray]],
+        output_range: tuple[Array, Array] | None,
     ) -> tuple[Agent, dict[str, float]]:
         key, rng = jax.random.split(self.rng)
         key2, rng = jax.random.split(rng)
 
-        def actor_loss_fn(actor_params) -> tuple[jnp.ndarray, dict[str, float]]:
+        def actor_loss_fn(actor_params) -> tuple[Array, dict[str, float]]:
             dist = self.actor.apply_fn({"params": actor_params}, batch["observations"])
             actions = dist.sample(seed=key)
             log_probs = dist.log_prob(actions)
@@ -409,7 +367,6 @@ class SACLearnerWithDynamics(Agent):
             exterior_l2_penalty = jnp.sum(exterior_actions**2, axis=-1)
             exterior_l2_penalty = jnp.sqrt(exterior_l2_penalty)
 
-            interior_linear_penalty = jnp.sum(jnp.abs(interior_actions), axis=-1)
             interior_quadratic_penalty = jnp.sum(interior_actions**4, axis=-1)
 
             penalty_function = (
@@ -419,7 +376,6 @@ class SACLearnerWithDynamics(Agent):
                 + self.exterior_linear_c * exterior_l1_penalty
                 + self.exterior_quadratic_c * exterior_l2_penalty
             )
-            # penalty_function = self.ctrl_weight * oob_penalty + (self.ctrl_weight / (2 * output_range[1])) * ib_penalty
 
             actor_loss = (
                 log_probs * self.temp.apply_fn({"params": self.temp.params}) - q + penalty_function
@@ -458,7 +414,6 @@ class SACLearnerWithDynamics(Agent):
     def update_critic(
         self,
         batch: DatasetDict,
-        max_grad_norm: float = np.inf,
     ) -> tuple[TrainState, dict[str, float]]:
         dist = self.actor.apply_fn(
             {"params": self.actor.params},
@@ -502,7 +457,7 @@ class SACLearnerWithDynamics(Agent):
 
         key, rng = jax.random.split(rng)
 
-        def critic_loss_fn(critic_params) -> tuple[jnp.ndarray, dict[str, float]]:
+        def critic_loss_fn(critic_params) -> tuple[Array, dict[str, float]]:
             qs = self.critic.apply_fn(
                 {"params": critic_params},
                 batch["observations"],
@@ -589,22 +544,21 @@ class SACLearnerWithDynamics(Agent):
         self,
         batch: DatasetDict,
         utd_ratio: int,
-        output_range: Optional[tuple[jnp.ndarray, jnp.ndarray]] = None,
+        output_range: tuple[Array, Array] | None = None,
         actor_delay: int = 1,
     ):
         new_agent = self
         for actor_i in range(utd_ratio // actor_delay):
             for critic_i in range(actor_delay):
 
-                def slice(x):
+                def _slice(x):
                     assert x.shape[0] % utd_ratio == 0
                     batch_size = x.shape[0] // utd_ratio
-                    return x[
-                        batch_size * (critic_i + actor_i * actor_delay) : batch_size
-                        * (critic_i + actor_i * actor_delay + 1)
-                    ]
+                    start = batch_size * (critic_i + actor_i * actor_delay)
+                    end = batch_size * (critic_i + actor_i * actor_delay + 1)
+                    return x[start:end]
 
-                mini_batch = jax.tree_util.tree_map(slice, batch)
+                mini_batch = jax.tree_util.tree_map(_slice, batch)
                 new_agent, critic_info = new_agent.update_critic(mini_batch)
 
             new_agent, actor_info = new_agent.update_actor(mini_batch, output_range=output_range)
@@ -618,17 +572,17 @@ class SACLearnerWithDynamics(Agent):
         self,
         batch: DatasetDict,
         utd_ratio: int,
-        output_range: Optional[tuple[jnp.ndarray, jnp.ndarray]] = None,
+        output_range: tuple[Array, Array] | None = None,
     ):
         new_agent = self
         for i in range(utd_ratio):
 
-            def slice(x):
+            def _slice(x):
                 assert x.shape[0] % utd_ratio == 0
                 batch_size = x.shape[0] // utd_ratio
                 return x[batch_size * i : batch_size * (i + 1)]
 
-            mini_batch = jax.tree_util.tree_map(slice, batch)
+            mini_batch = jax.tree_util.tree_map(_slice, batch)
             new_agent, critic_info = new_agent.update_critic(mini_batch)
 
         new_agent, actor_info = new_agent.update_actor(mini_batch, output_range=output_range)
@@ -686,7 +640,7 @@ class SACLearnerWithDynamics(Agent):
     def update_dynamics(self, batch: DatasetDict) -> tuple[Agent, dict[str, float]]:
         key, rng = jax.random.split(self.rng)
 
-        def dynamics_loss_fn(dynamics_params) -> tuple[jnp.ndarray, dict[str, float]]:
+        def dynamics_loss_fn(dynamics_params) -> tuple[Array, dict[str, float]]:
             next_observations_pred = self.dynamics_model.apply_fn(
                 {"params": dynamics_params},
                 batch["observations"],
@@ -706,8 +660,6 @@ class SACLearnerWithDynamics(Agent):
 
     @jax.jit
     def compute_dynamics_surprise(self, batch):
-        observations = batch["observations"]
-        actions = batch["actions"]
         actual_next_observations = batch["next_observations"]
 
         next_observations_pred = self.dynamics_model.apply_fn(
@@ -717,5 +669,4 @@ class SACLearnerWithDynamics(Agent):
         )
 
         # Compute the mean squared error (MSE) for next observations and rewards
-        next_observations_error = jnp.mean((next_observations_pred - actual_next_observations) ** 2)
-        return next_observations_error
+        return jnp.mean((next_observations_pred - actual_next_observations) ** 2)
