@@ -19,18 +19,12 @@ dependencies = [
 line-length = 100
 select = ["ALL"]
 ignore = [
-    "D100", # Missing docstring in public module # TODO: remove
-    "D101", # Missing docstring in public class # TODO: remove
-    "D102", # Missing docstring in public method # TODO: remove
-    "D103", # Missing docstring in public function # TODO: remove
-    "D104", # Missing docstring in public package # TODO: remove
-    "D105", # Missing docstring in magic method# TODO: remove
-    "D107", # Missing docstring in `__init__` # TODO: remove
-    "D213", # `multi-line-summary-second-line`,
-    "D203", # `one-blank-line-before-class`
-    "ANN101", # Missing type annotation for `self` in method
+    "D",
+    "ANN",
+    "FBT",
     "FIX002", # Line contains TODO, consider resolving the issue
     "TD003", # Missing issue link on the line following this TODO
+    "PLR0913", # Too many arguments to function call
 ]
 
 target-version = "py311"
