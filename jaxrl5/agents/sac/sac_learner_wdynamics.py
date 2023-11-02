@@ -3,7 +3,6 @@
 from collections.abc import Sequence
 from functools import partial
 
-import flax
 import gym
 import jax
 import jax.numpy as jnp
@@ -14,28 +13,15 @@ from flax.training.train_state import TrainState
 from jax import Array
 
 from jaxrl5.agents.agent import Agent
-from jaxrl5.agents.sac.temperature import Temperature
+from jaxrl5.agents.sac.sac_learner import make_critic, make_temp
 from jaxrl5.data.dataset import DatasetDict
 from jaxrl5.distributions import TanhNormal
 from jaxrl5.networks import (
     MLP,
-    Ensemble,
-    MLPResNetV2,
     StateActionNextState,
-    StateActionValue,
     subsample_ensemble,
 )
-
-
-def convert_to_numpy_array(param):
-    if isinstance(param, list):
-        return jax.tree_map(convert_to_numpy_array, param)
-    return jnp.array(param)
-
-
-def tree_multimap(func, tree1, tree2):
-    """Apply a function element-wise to two trees."""
-    return jax.tree_map(lambda x, y: func(x, y), tree1, tree2)
+from jaxrl5.utils import convert_to_numpy_array, tree_multimap
 
 
 def compute_critic_param_change_norm(before_params, after_params):
@@ -50,13 +36,6 @@ def compute_critic_param_change_norm(before_params, after_params):
 def compute_gradient_norm(grads):
     grad_squares = jax.tree_map(lambda g: jnp.sum(g**2), grads)
     return jnp.sqrt(jnp.sum(jnp.array(jax.tree_util.tree_leaves(grad_squares))))  # grad_norm
-
-
-# From https://colab.research.google.com/github/huggingface/notebooks/blob/master/examples/text_classification_flax.ipynb#scrollTo=ap-zaOyKJDXM
-def decay_mask_fn(params):
-    flat_params = flax.traverse_util.flatten_dict(params)
-    flat_mask = {path: path[-1] != "bias" for path in flat_params}
-    return flax.core.FrozenDict(flax.traverse_util.unflatten_dict(flat_mask))
 
 
 class SACLearnerWithDynamics(Agent):
@@ -132,66 +111,23 @@ class SACLearnerWithDynamics(Agent):
             tx=optax.adam(learning_rate=actor_lr),
         )
 
-        if use_critic_resnet:
-            critic_base_cls = partial(
-                MLPResNetV2,
-                num_blocks=1,
-            )
-        else:
-            critic_base_cls = partial(
-                MLP,
-                hidden_dims=hidden_dims,
-                activate_final=True,
-                dropout_rate=critic_dropout_rate,
-                use_layer_norm=critic_layer_norm,
-                use_pnorm=use_pnorm,
-            )
-        critic_cls = partial(StateActionValue, base_cls=critic_base_cls)
-        critic_def = Ensemble(critic_cls, num=num_qs)
-        critic_params = critic_def.init(critic_key, observations, actions)["params"]
-        if critic_weight_decay is not None:
-            if max_gradient_norm is not None:
-                tx = optax.chain(
-                    optax.clip_by_global_norm(max_gradient_norm),
-                    optax.adamw(
-                        learning_rate=critic_lr,
-                        weight_decay=critic_weight_decay,
-                        mask=decay_mask_fn,
-                    ),
-                )
-            else:
-                tx = optax.adamw(
-                    learning_rate=critic_lr,
-                    weight_decay=critic_weight_decay,
-                    mask=decay_mask_fn,
-                )
-        elif max_gradient_norm is not None:
-            tx = optax.chain(
-                optax.clip_by_global_norm(max_gradient_norm),
-                optax.adam(learning_rate=critic_lr),
-            )
-        else:
-            tx = optax.adam(learning_rate=critic_lr)
-
-        critic = TrainState.create(
-            apply_fn=critic_def.apply,
-            params=critic_params,
-            tx=tx,
-        )
-        target_critic_def = Ensemble(critic_cls, num=num_min_qs or num_qs)
-        target_critic = TrainState.create(
-            apply_fn=target_critic_def.apply,
-            params=critic_params,
-            tx=optax.GradientTransformation(lambda _: None, lambda _: None),
+        critic, target_critic = make_critic(
+            use_critic_resnet,
+            hidden_dims,
+            critic_dropout_rate,
+            critic_layer_norm,
+            use_pnorm,
+            num_qs,
+            critic_key,
+            observations,
+            actions,
+            critic_weight_decay,
+            max_gradient_norm,
+            critic_lr,
+            num_min_qs,
         )
 
-        temp_def = Temperature(init_temperature)
-        temp_params = temp_def.init(temp_key)["params"]
-        temp = TrainState.create(
-            apply_fn=temp_def.apply,
-            params=temp_params,
-            tx=optax.adam(learning_rate=temp_lr),
-        )
+        temp = make_temp(init_temperature, temp_key, temp_lr)
 
         # Create the dynamics model
         dynamics_base_cls = partial(
@@ -264,7 +200,7 @@ class SACLearnerWithDynamics(Agent):
         critic_lr: float = 3e-4,
         hidden_dims: Sequence[int] = (256, 256),
         critic_dropout_rate: float | None = None,
-        critic_weight_decay: float | None = None,
+        # critic_weight_decay: float | None = None, # noqa: ERA001
         critic_layer_norm: bool = False,
         use_pnorm: bool = False,
         use_critic_resnet: bool = False,
@@ -272,62 +208,18 @@ class SACLearnerWithDynamics(Agent):
     ):
         key, rng = jax.random.split(self.rng)
 
-        if use_critic_resnet:
-            critic_base_cls = partial(
-                MLPResNetV2,
-                num_blocks=1,
-            )
-        else:
-            critic_base_cls = partial(
-                MLP,
-                hidden_dims=hidden_dims,
-                activate_final=True,
-                dropout_rate=critic_dropout_rate,
-                use_layer_norm=critic_layer_norm,
-                use_pnorm=use_pnorm,
-            )
-
-        critic_cls = partial(StateActionValue, base_cls=critic_base_cls)
-        critic_def = Ensemble(critic_cls, num=self.num_qs)
-        critic_params = critic_def.init(key, self.batch["observations"], self.batch["actions"])[
-            "params"
-        ]
-
-        if critic_weight_decay is not None:
-            if max_gradient_norm is not None:
-                tx = optax.chain(
-                    optax.clip_by_global_norm(max_gradient_norm),
-                    optax.adamw(
-                        learning_rate=critic_lr,
-                        weight_decay=critic_weight_decay,
-                        mask=decay_mask_fn,
-                    ),
-                )
-            else:
-                tx = optax.adamw(
-                    learning_rate=critic_lr,
-                    weight_decay=critic_weight_decay,
-                    mask=decay_mask_fn,
-                )
-        elif max_gradient_norm is not None:
-            tx = optax.chain(
-                optax.clip_by_global_norm(max_gradient_norm),
-                optax.adam(learning_rate=critic_lr),
-            )
-        else:
-            tx = optax.adam(learning_rate=critic_lr)
-
-        critic = TrainState.create(
-            apply_fn=critic_def.apply,
-            params=critic_params,
-            tx=tx,
-        )
-
-        target_critic_def = Ensemble(critic_cls, num=self.num_min_qs or self.num_qs)
-        target_critic = TrainState.create(
-            apply_fn=target_critic_def.apply,
-            params=critic_params,
-            tx=optax.GradientTransformation(lambda _: None, lambda _: None),
+        critic, target_critic = make_critic(
+            use_critic_resnet,
+            hidden_dims,
+            critic_dropout_rate,
+            critic_layer_norm,
+            use_pnorm,
+            self.num_qs,
+            key,
+            self.batch,
+            max_gradient_norm,
+            critic_lr,
+            self.num_min_qs,
         )
 
         # Replace the critic and target critic with the new random parameters

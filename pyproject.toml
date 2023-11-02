@@ -18,6 +18,7 @@ dependencies = [
 [tool.ruff]
 line-length = 100
 select = ["ALL"]
+ignore-init-module-imports = true
 ignore = [
     "D",
     "ANN",
@@ -26,7 +27,8 @@ ignore = [
     "B023", # Function definition does not bind loop variable
     "S101", # Use of `assert` detected
     "PLR2004", # Magic value used in comparison
-    "F401", # imported but unused, it empties the __init__ files :(
+    "COM812", # conflict
+    "ISC001" # conflict
 ]
 
 target-version = "py311"

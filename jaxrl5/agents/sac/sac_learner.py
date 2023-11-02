@@ -3,7 +3,6 @@
 from collections.abc import Sequence
 from functools import partial
 
-import flax
 import gym
 import jax
 import jax.numpy as jnp
@@ -24,20 +23,10 @@ from jaxrl5.networks import (
     StateActionValue,
     subsample_ensemble,
 )
+from jaxrl5.utils import convert_to_numpy_array, decay_mask_fn, tree_multimap
 
 
-def convert_to_numpy_array(param):
-    if isinstance(param, list):
-        return jax.tree_map(convert_to_numpy_array, param)
-    return jnp.array(param)
-
-
-def tree_multimap(func, tree1, tree2):
-    """Apply a function element-wise to two trees."""
-    return jax.tree_map(lambda x, y: func(x, y), tree1, tree2)
-
-
-def compute_critic_param_change_norm(before_params, after_params):
+def l2_distance(before_params, after_params):
     param_squares = tree_multimap(
         lambda p1, p2: jnp.sum((p2 - p1) ** 2),
         before_params,
@@ -46,16 +35,108 @@ def compute_critic_param_change_norm(before_params, after_params):
     return jnp.sqrt(jnp.sum(jnp.array(jax.tree_util.tree_leaves(param_squares))))
 
 
-def compute_gradient_norm(grads):
+def l2_norm(grads):
     grad_squares = jax.tree_map(lambda g: jnp.sum(g**2), grads)
     return jnp.sqrt(jnp.sum(jnp.array(jax.tree_util.tree_leaves(grad_squares))))
 
 
-# From https://colab.research.google.com/github/huggingface/notebooks/blob/master/examples/text_classification_flax.ipynb#scrollTo=ap-zaOyKJDXM
-def decay_mask_fn(params):
-    flat_params = flax.traverse_util.flatten_dict(params)
-    flat_mask = {path: path[-1] != "bias" for path in flat_params}
-    return flax.core.FrozenDict(flax.traverse_util.unflatten_dict(flat_mask))
+def make_mlp_actor(hidden_dims, use_pnorm, action_dim, observations, key, lr):
+    actor_base_cls = partial(
+        MLP,
+        hidden_dims=hidden_dims,
+        activate_final=True,
+        use_pnorm=use_pnorm,
+    )
+    actor_def = TanhNormal(actor_base_cls, action_dim)
+    actor_params = actor_def.init(key, observations)["params"]
+    return TrainState.create(
+        apply_fn=actor_def.apply,
+        params=actor_params,
+        tx=optax.adam(learning_rate=lr),
+    )
+
+
+def make_temp(init_temperature, key, lr):
+    temp_def = Temperature(init_temperature)
+    temp_params = temp_def.init(key)["params"]
+    return TrainState.create(
+        apply_fn=temp_def.apply,
+        params=temp_params,
+        tx=optax.adam(learning_rate=lr),
+    )
+
+
+def make_critic(
+    use_critic_resnet,
+    hidden_dims,
+    critic_dropout_rate,
+    critic_layer_norm,
+    use_pnorm,
+    num_qs,
+    key,
+    batch,
+    critic_weight_decay,
+    max_gradient_norm,
+    critic_lr,
+    num_min_qs,
+):
+    if use_critic_resnet:
+        critic_base_cls = partial(
+            MLPResNetV2,
+            num_blocks=1,
+        )
+    else:
+        critic_base_cls = partial(
+            MLP,
+            hidden_dims=hidden_dims,
+            activate_final=True,
+            dropout_rate=critic_dropout_rate,
+            use_layer_norm=critic_layer_norm,
+            use_pnorm=use_pnorm,
+        )
+    observations = batch["observations"]
+    actions = batch["actions"]
+
+    critic_cls = partial(StateActionValue, base_cls=critic_base_cls)
+    critic_def = Ensemble(critic_cls, num=num_qs)
+    critic_params = critic_def.init(key, observations, actions)["params"]
+    if critic_weight_decay is not None:
+        if max_gradient_norm is not None:
+            tx = optax.chain(
+                optax.clip_by_global_norm(max_gradient_norm),
+                optax.adamw(
+                    learning_rate=critic_lr,
+                    weight_decay=critic_weight_decay,
+                    mask=decay_mask_fn,
+                ),
+            )
+        else:
+            tx = optax.adamw(
+                learning_rate=critic_lr,
+                weight_decay=critic_weight_decay,
+                mask=decay_mask_fn,
+            )
+    elif max_gradient_norm is not None:
+        tx = optax.chain(
+            optax.clip_by_global_norm(max_gradient_norm),
+            optax.adam(learning_rate=critic_lr),
+        )
+    else:
+        tx = optax.adam(learning_rate=critic_lr)
+
+    critic = TrainState.create(
+        apply_fn=critic_def.apply,
+        params=critic_params,
+        tx=tx,
+    )
+    target_critic_def = Ensemble(critic_cls, num=num_min_qs or num_qs)
+    target_critic = TrainState.create(
+        apply_fn=target_critic_def.apply,
+        params=critic_params,
+        tx=optax.GradientTransformation(lambda _: None, lambda _: None),
+    )
+
+    return critic, target_critic
 
 
 class SACLearner(Agent):
@@ -115,80 +196,32 @@ class SACLearner(Agent):
         rng = jax.random.PRNGKey(seed)
         rng, actor_key, critic_key, temp_key = jax.random.split(rng, 4)
 
-        actor_base_cls = partial(
-            MLP,
-            hidden_dims=hidden_dims,
-            activate_final=True,
-            use_pnorm=use_pnorm,
-        )
-        actor_def = TanhNormal(actor_base_cls, action_dim)
-        actor_params = actor_def.init(actor_key, observations)["params"]
-        actor = TrainState.create(
-            apply_fn=actor_def.apply,
-            params=actor_params,
-            tx=optax.adam(learning_rate=actor_lr),
+        actor = make_mlp_actor(
+            hidden_dims,
+            use_pnorm,
+            action_dim,
+            observations,
+            actor_key,
+            actor_lr,
         )
 
-        if use_critic_resnet:
-            critic_base_cls = partial(
-                MLPResNetV2,
-                num_blocks=1,
-            )
-        else:
-            critic_base_cls = partial(
-                MLP,
-                hidden_dims=hidden_dims,
-                activate_final=True,
-                dropout_rate=critic_dropout_rate,
-                use_layer_norm=critic_layer_norm,
-                use_pnorm=use_pnorm,
-            )
-        critic_cls = partial(StateActionValue, base_cls=critic_base_cls)
-        critic_def = Ensemble(critic_cls, num=num_qs)
-        critic_params = critic_def.init(critic_key, observations, actions)["params"]
-        if critic_weight_decay is not None:
-            if max_gradient_norm is not None:
-                tx = optax.chain(
-                    optax.clip_by_global_norm(max_gradient_norm),
-                    optax.adamw(
-                        learning_rate=critic_lr,
-                        weight_decay=critic_weight_decay,
-                        mask=decay_mask_fn,
-                    ),
-                )
-            else:
-                tx = optax.adamw(
-                    learning_rate=critic_lr,
-                    weight_decay=critic_weight_decay,
-                    mask=decay_mask_fn,
-                )
-        elif max_gradient_norm is not None:
-            tx = optax.chain(
-                optax.clip_by_global_norm(max_gradient_norm),
-                optax.adam(learning_rate=critic_lr),
-            )
-        else:
-            tx = optax.adam(learning_rate=critic_lr)
-
-        critic = TrainState.create(
-            apply_fn=critic_def.apply,
-            params=critic_params,
-            tx=tx,
-        )
-        target_critic_def = Ensemble(critic_cls, num=num_min_qs or num_qs)
-        target_critic = TrainState.create(
-            apply_fn=target_critic_def.apply,
-            params=critic_params,
-            tx=optax.GradientTransformation(lambda _: None, lambda _: None),
+        critic, target_critic = make_critic(
+            use_critic_resnet,
+            hidden_dims,
+            critic_dropout_rate,
+            critic_layer_norm,
+            use_pnorm,
+            num_qs,
+            critic_key,
+            observations,
+            actions,
+            critic_weight_decay,
+            max_gradient_norm,
+            critic_lr,
+            num_min_qs,
         )
 
-        temp_def = Temperature(init_temperature)
-        temp_params = temp_def.init(temp_key)["params"]
-        temp = TrainState.create(
-            apply_fn=temp_def.apply,
-            params=temp_params,
-            tx=optax.adam(learning_rate=temp_lr),
-        )
+        temp = make_temp(init_temperature, temp_key, temp_lr)
 
         return cls(
             rng=rng,
@@ -219,19 +252,13 @@ class SACLearner(Agent):
         action_dim = action_space.shape[-1]
         key, rng = jax.random.split(self.rng)
 
-        # Get a fresh set of random actor parameters
-        actor_base_cls = partial(
-            MLP,
-            hidden_dims=hidden_dims,
-            activate_final=True,
-            use_pnorm=use_pnorm,
-        )
-        actor_def = TanhNormal(actor_base_cls, action_dim)
-        actor_params = actor_def.init(key, self.batch["observations"])["params"]
-        actor = TrainState.create(
-            apply_fn=actor_def.apply,
-            params=actor_params,
-            tx=optax.adam(learning_rate=actor_lr),
+        actor = make_mlp_actor(
+            hidden_dims,
+            use_pnorm,
+            action_dim,
+            self.batch["observations"],
+            key,
+            actor_lr,
         )
 
         # Replace the actor with the new random parameters
@@ -242,7 +269,7 @@ class SACLearner(Agent):
         critic_lr: float = 3e-4,
         hidden_dims: Sequence[int] = (256, 256),
         critic_dropout_rate: float | None = None,
-        critic_weight_decay: float | None = None,
+        # critic_weight_decay: float | None = None, # noqa: ERA001
         critic_layer_norm: bool = False,
         use_pnorm: bool = False,
         use_critic_resnet: bool = False,
@@ -250,62 +277,18 @@ class SACLearner(Agent):
     ):
         key, rng = jax.random.split(self.rng)
 
-        if use_critic_resnet:
-            critic_base_cls = partial(
-                MLPResNetV2,
-                num_blocks=1,
-            )
-        else:
-            critic_base_cls = partial(
-                MLP,
-                hidden_dims=hidden_dims,
-                activate_final=True,
-                dropout_rate=critic_dropout_rate,
-                use_layer_norm=critic_layer_norm,
-                use_pnorm=use_pnorm,
-            )
-
-        critic_cls = partial(StateActionValue, base_cls=critic_base_cls)
-        critic_def = Ensemble(critic_cls, num=self.num_qs)
-        critic_params = critic_def.init(key, self.batch["observations"], self.batch["actions"])[
-            "params"
-        ]
-
-        if critic_weight_decay is not None:
-            if max_gradient_norm is not None:
-                tx = optax.chain(
-                    optax.clip_by_global_norm(max_gradient_norm),
-                    optax.adamw(
-                        learning_rate=critic_lr,
-                        weight_decay=critic_weight_decay,
-                        mask=decay_mask_fn,
-                    ),
-                )
-            else:
-                tx = optax.adamw(
-                    learning_rate=critic_lr,
-                    weight_decay=critic_weight_decay,
-                    mask=decay_mask_fn,
-                )
-        elif max_gradient_norm is not None:
-            tx = optax.chain(
-                optax.clip_by_global_norm(max_gradient_norm),
-                optax.adam(learning_rate=critic_lr),
-            )
-        else:
-            tx = optax.adam(learning_rate=critic_lr)
-
-        critic = TrainState.create(
-            apply_fn=critic_def.apply,
-            params=critic_params,
-            tx=tx,
-        )
-
-        target_critic_def = Ensemble(critic_cls, num=self.num_min_qs or self.num_qs)
-        target_critic = TrainState.create(
-            apply_fn=target_critic_def.apply,
-            params=critic_params,
-            tx=optax.GradientTransformation(lambda _: None, lambda _: None),
+        critic, target_critic = make_critic(
+            use_critic_resnet,
+            hidden_dims,
+            critic_dropout_rate,
+            critic_layer_norm,
+            use_pnorm,
+            self.num_qs,
+            key,
+            self.batch,
+            max_gradient_norm,
+            critic_lr,
+            self.num_min_qs,
         )
 
         # Replace the critic and target critic with the new random parameters
@@ -316,8 +299,7 @@ class SACLearner(Agent):
         batch: DatasetDict,
         output_range: tuple[Array, Array] | None,
     ) -> tuple[Agent, dict[str, float]]:
-        key, rng = jax.random.split(self.rng)
-        key2, rng = jax.random.split(rng)
+        key2, key, rng = jax.random.split(self.rng, 3)
 
         def actor_loss_fn(actor_params) -> tuple[Array, dict[str, float]]:
             dist = self.actor.apply_fn({"params": actor_params}, batch["observations"])
@@ -450,13 +432,13 @@ class SACLearner(Agent):
         grads, info = jax.grad(critic_loss_fn, has_aux=True)(self.critic.params)
 
         # Compute the gradient magnitudes
-        critic_grad_magnitudes = compute_gradient_norm(grads)
+        critic_grad_magnitudes = l2_norm(grads)
 
         critic_params_before = self.critic.params
         critic = self.critic.apply_gradients(grads=grads)
         critic_params_after = critic.params
 
-        critic_params_change = compute_critic_param_change_norm(
+        critic_params_change = l2_distance(
             critic_params_before,
             critic_params_after,
         )
@@ -478,28 +460,26 @@ class SACLearner(Agent):
             {"params": self.actor.params},
             batch["next_observations"],
         )
-
-        rng = self.rng
-
-        key, rng = jax.random.split(rng)
-        next_actions = dist.sample(seed=key)
+        key_sample, key_action, key_critic, key_critic_next, self.rng = jax.random.split(
+            self.rng,
+            5,
+        )
+        next_actions = dist.sample(seed=key_action)
 
         # Used only for REDQ.
-        key, rng = jax.random.split(rng)
         target_params = subsample_ensemble(
-            key,
+            key_sample,
             self.target_critic.params,
             self.num_min_qs,
             self.num_qs,
         )
 
-        key, rng = jax.random.split(rng)
         next_qs = self.target_critic.apply_fn(
             {"params": target_params},
             batch["next_observations"],
             next_actions,
             True,
-            rngs={"dropout": key},
+            rngs={"dropout": key_critic_next},
         )  # training=True
         next_q = next_qs.min(axis=0)
 
@@ -514,14 +494,12 @@ class SACLearner(Agent):
                 * next_log_probs
             )
 
-        key, rng = jax.random.split(rng)
-
         qs = self.critic.apply_fn(
             {"params": self.critic.params},
             batch["observations"],
             batch["actions"],
             True,
-            rngs={"dropout": key},
+            rngs={"dropout": key_critic},
         )  # training=True
 
         return (qs - target_q) ** 2  # td-error

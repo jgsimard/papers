@@ -20,7 +20,7 @@ class Ensemble(nn.Module):
         return ensemble()(*args)
 
 
-def subsample_ensemble(key: jax.random.PRNGKey, params, num_sample: int, num_qs: int):
+def subsample_ensemble(key: jax.random.PRNGKeyArray, params, num_sample: int, num_qs: int):
     if num_sample is not None:
         all_indx = jnp.arange(0, num_qs)
         indx = jax.random.choice(key, a=all_indx, shape=(num_sample,), replace=False)
