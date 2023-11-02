@@ -21,21 +21,7 @@ from jaxrl5.networks import (
     StateActionNextState,
     subsample_ensemble,
 )
-from jaxrl5.utils import convert_to_numpy_array, tree_multimap
-
-
-def compute_critic_param_change_norm(before_params, after_params):
-    param_squares = tree_multimap(
-        lambda p1, p2: jnp.sum((p2 - p1) ** 2),
-        before_params,
-        after_params,
-    )
-    return jnp.sqrt(jnp.sum(jnp.array(jax.tree_util.tree_leaves(param_squares))))
-
-
-def compute_gradient_norm(grads):
-    grad_squares = jax.tree_map(lambda g: jnp.sum(g**2), grads)
-    return jnp.sqrt(jnp.sum(jnp.array(jax.tree_util.tree_leaves(grad_squares))))  # grad_norm
+from jaxrl5.utils import convert_to_numpy_array, l2_distance, l2_norm
 
 
 class SACLearnerWithDynamics(Agent):
@@ -363,13 +349,13 @@ class SACLearnerWithDynamics(Agent):
         grads, info = jax.grad(critic_loss_fn, has_aux=True)(self.critic.params)
 
         # Compute the gradient magnitudes
-        critic_grad_magnitudes = compute_gradient_norm(grads)
+        critic_grad_magnitudes = l2_norm(grads)
 
         critic_params_before = self.critic.params
         critic = self.critic.apply_gradients(grads=grads)
         critic_params_after = critic.params
 
-        critic_params_change = compute_critic_param_change_norm(
+        critic_params_change = l2_distance(
             critic_params_before,
             critic_params_after,
         )

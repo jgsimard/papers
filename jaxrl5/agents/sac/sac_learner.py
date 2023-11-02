@@ -23,21 +23,7 @@ from jaxrl5.networks import (
     StateActionValue,
     subsample_ensemble,
 )
-from jaxrl5.utils import convert_to_numpy_array, decay_mask_fn, tree_multimap
-
-
-def l2_distance(before_params, after_params):
-    param_squares = tree_multimap(
-        lambda p1, p2: jnp.sum((p2 - p1) ** 2),
-        before_params,
-        after_params,
-    )
-    return jnp.sqrt(jnp.sum(jnp.array(jax.tree_util.tree_leaves(param_squares))))
-
-
-def l2_norm(grads):
-    grad_squares = jax.tree_map(lambda g: jnp.sum(g**2), grads)
-    return jnp.sqrt(jnp.sum(jnp.array(jax.tree_util.tree_leaves(grad_squares))))
+from jaxrl5.utils import convert_to_numpy_array, decay_mask_fn, l2_distance, l2_norm
 
 
 def make_mlp_actor(hidden_dims, use_pnorm, action_dim, observations, key, lr):
