@@ -220,12 +220,12 @@ class TD3Learner(Agent):
         new_agent = self
         for i in range(utd_ratio):
 
-            def slice(x):
+            def _slice(x):
                 assert x.shape[0] % utd_ratio == 0
                 batch_size = x.shape[0] // utd_ratio
                 return x[batch_size * i : batch_size * (i + 1)]
 
-            mini_batch = jax.tree_util.tree_map(slice, batch)
+            mini_batch = jax.tree_util.tree_map(_slice, batch)
             new_agent, critic_info = new_agent.update_critic(mini_batch)
 
         true_steps = new_agent.critic.step / utd_ratio

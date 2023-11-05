@@ -33,7 +33,6 @@ def _unpack(batch):
     return batch.copy(add_or_replace={"observations": obs, "next_observations": next_obs})
 
 
-
 def _share_encoder(source, target):
     replacers = {}
 

@@ -1,4 +1,3 @@
-
 import gym
 from gym.wrappers.pixel_observation import PixelObservationWrapper
 

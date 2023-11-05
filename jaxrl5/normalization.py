@@ -2,21 +2,19 @@ import numpy as np
 
 
 class DatasetNormalizer:
-    def __init__(self, dataset, normalizer, path_lengths=None):
-        # dataset = flatten(dataset, path_lengths)
-
+    def __init__(self, dataset, normalizer):
         self.observation_dim = dataset["observations"].shape[1]
         self.action_dim = dataset["actions"].shape[1]
 
-        if type(normalizer) == str:
-            normalizer = eval(normalizer)
+        if isinstance(normalizer, str):
+            normalizer = eval(normalizer)  # noqa: S307, PGH001
 
         self.normalizers = {}
         for key, val in dataset.items():
             try:
                 self.normalizers[key] = normalizer(val)
-            except:
-                print(f"[ utils/normalization ] Skipping {key} | {normalizer}")
+            except:  # noqa: E722
+                print(f"[ utils/normalization ] Skipping {key} | {normalizer}")  # noqa: T201
 
     def __repr__(self):
         string = ""
@@ -42,7 +40,7 @@ class Normalizer:
     parent class, subclass by defining the `normalize` and `unnormalize` methods
     """
 
-    def __init__(self, X):
+    def __init__(self, X):  # noqa: N803
         self.X = X.astype(np.float32)
         self.mins = X.min(axis=0)
         self.maxs = X.max(axis=0)
@@ -96,4 +94,6 @@ def flatten(dataset, path_lengths):
     flattened = {}
     for key, xs in dataset.items():
         assert len(xs) == len(path_lengths)
-        flattened[key] = np.concatenate([x[:length] for x, length in zip(xs, path_lengths)], axis=0)
+        flattened[key] = np.concatenate(
+            [x[:length] for x, length in zip(xs, path_lengths, strict=True)], axis=0
+        )

@@ -20,14 +20,11 @@ from jaxrl5.networks import MLP
 def get_weight_decay_mask(params):
     flattened_params = flax.traverse_util.flatten_dict(flax.core.frozen_dict.unfreeze(params))
 
-    def decay(k, v):
-        if any((key == "bias") for key in k):
-            return False
-        else:
-            return True
+    def decay(k):
+        return not any(key == "bias" for key in k)
 
     return flax.core.frozen_dict.freeze(
-        flax.traverse_util.unflatten_dict({k: decay(k, v) for k, v in flattened_params.items()})
+        flax.traverse_util.unflatten_dict({k: decay(k) for k in flattened_params})
     )
 
 

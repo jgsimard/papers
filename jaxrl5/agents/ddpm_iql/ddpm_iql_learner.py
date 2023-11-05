@@ -41,19 +41,18 @@ def quantile_loss(diff, quantile=0.6):
 def exp_w_clip(x, x0, mode="zero"):
     if mode == "zero":
         return jnp.where(x < x0, jnp.exp(x), jnp.exp(x0))
-    elif mode == "first":
+    if mode == "first":
         return jnp.where(x < x0, jnp.exp(x), jnp.exp(x0) + jnp.exp(x0) * (x - x0))
-    elif mode == "second":
+    if mode == "second":
         return jnp.where(
             x < x0,
             jnp.exp(x),
             jnp.exp(x0) + jnp.exp(x0) * (x - x0) + (jnp.exp(x0) / 2) * ((x - x0) ** 2),
         )
-    else:
-        raise ValueError
+    raise ValueError
 
 
-def exponential_loss(diff, beta, clip=jnp.log(6), mode="zero"):
+def exponential_loss(diff, beta, clip=jnp.log(6), mode="zero"):  # noqa: B008
     exp_diff = exp_w_clip(diff * beta, clip, mode=mode)
     exp_diff = jax.lax.stop_gradient(exp_diff)
     return (exp_diff - 1) * (diff)
@@ -120,10 +119,10 @@ class DDPMIQLLearner(Agent):
         actor_dropout_rate: float | None = None,
         actor_layer_norm: bool = False,
         policy_temperature: float = 3.0,
-        T: int = 5,
+        T: int = 5,  # noqa: N803
         time_dim: int = 64,
-        N: int = 64,
-        M: int = 0,
+        N: int = 64,  # noqa: N803
+        M: int = 0,  # noqa: N803
         clip_sampler: bool = True,
         actor_objective: str = "bc",
         critic_objective: str = "expectile",
@@ -260,7 +259,8 @@ class DDPMIQLLearner(Agent):
             policy_temperature=policy_temperature,
         )
 
-    def update_v(agent, batch: DatasetDict) -> tuple[Agent, dict[str, float]]:
+    def update_v(self, batch: DatasetDict) -> tuple[Agent, dict[str, float]]:
+        agent = self
         qs = agent.target_critic.apply_fn(
             {"params": agent.target_critic.params},
             batch["observations"],
@@ -290,7 +290,8 @@ class DDPMIQLLearner(Agent):
 
         return agent, info
 
-    def update_q(agent, batch: DatasetDict) -> tuple[Agent, dict[str, float]]:
+    def update_q(self, batch: DatasetDict) -> tuple[Agent, dict[str, float]]:
+        agent = self
         next_v = agent.value.apply_fn({"params": agent.value.params}, batch["next_observations"])
 
         target_q = batch["rewards"] + agent.discount * batch["masks"] * next_v
@@ -319,7 +320,8 @@ class DDPMIQLLearner(Agent):
         new_agent = agent.replace(critic=critic, target_critic=target_critic)
         return new_agent, info
 
-    def update_actor(agent, batch: DatasetDict) -> tuple[Agent, dict[str, float]]:
+    def update_actor(self, batch: DatasetDict) -> tuple[Agent, dict[str, float]]:
+        agent = self
         rng = agent.rng
         key, rng = jax.random.split(rng, 2)
         time = jax.random.randint(key, (batch["actions"].shape[0],), 0, agent.T)
@@ -472,7 +474,8 @@ class DDPMIQLLearner(Agent):
 
         return np.array(action.squeeze()), self.replace(rng=new_rng)
 
-    def actor_loss_no_grad(agent, batch: DatasetDict):
+    def actor_loss_no_grad(self, batch: DatasetDict):
+        agent = self
         rng = agent.rng
         key, rng = jax.random.split(rng, 2)
         time = jax.random.randint(key, (batch["actions"].shape[0],), 0, agent.T)
@@ -519,12 +522,12 @@ class DDPMIQLLearner(Agent):
 
     @jax.jit
     def critic_update(self, batch: DatasetDict):
-        def slice(x):
+        def _slice(x):
             return x[:256]
 
         new_agent = self
 
-        mini_batch = jax.tree_util.tree_map(slice, batch)
+        mini_batch = jax.tree_util.tree_map(_slice, batch)
         new_agent, critic_info = new_agent.update_v(mini_batch)
         new_agent, value_info = new_agent.update_q(mini_batch)
 
@@ -547,10 +550,10 @@ class DDPMIQLLearner(Agent):
         new_agent, _ = new_agent.update_actor(first_batch)
         new_agent, actor_info = new_agent.update_actor(second_batch)
 
-        def slice(x):
+        def _slice(x):
             return x[:256]
 
-        mini_batch = jax.tree_util.tree_map(slice, batch)
+        mini_batch = jax.tree_util.tree_map(_slice, batch)
         new_agent, critic_info = new_agent.update_v(mini_batch)
         new_agent, value_info = new_agent.update_q(mini_batch)
 

@@ -98,7 +98,8 @@ class IQLLearner(Agent):
             rng=rng,
         )
 
-    def update_v(agent, batch: DatasetDict) -> tuple[Agent, dict[str, float]]:
+    def update_v(self, batch: DatasetDict) -> tuple[Agent, dict[str, float]]:
+        agent = self
         q1, q2 = agent.target_critic.apply_fn(
             {"params": agent.target_critic.params},
             batch["observations"],
@@ -118,7 +119,8 @@ class IQLLearner(Agent):
 
         return agent, info
 
-    def update_q(agent, batch: DatasetDict) -> tuple[Agent, dict[str, float]]:
+    def update_q(self, batch: DatasetDict) -> tuple[Agent, dict[str, float]]:
+        agent = self
         next_v = agent.value.apply_fn({"params": agent.value.params}, batch["next_observations"])
 
         target_q = batch["rewards"] + agent.discount * batch["masks"] * next_v
@@ -147,7 +149,8 @@ class IQLLearner(Agent):
         new_agent = agent.replace(critic=critic, target_critic=target_critic)
         return new_agent, info
 
-    def update_actor(agent, batch: DatasetDict) -> tuple[Agent, dict[str, float]]:
+    def update_actor(self, batch: DatasetDict) -> tuple[Agent, dict[str, float]]:
+        agent = self
         v = agent.value.apply_fn({"params": agent.value.params}, batch["observations"])
 
         q1, q2 = agent.target_critic.apply_fn(

@@ -1,4 +1,3 @@
-
 import flax.linen as nn
 import jax
 import jax.numpy as jnp
@@ -26,7 +25,7 @@ class PixelMultiplexer(nn.Module):
         depth_keys = [None] * len(self.pixel_keys) if len(self.depth_keys) == 0 else self.depth_keys
 
         xs = []
-        for i, (pixel_key, depth_key) in enumerate(zip(self.pixel_keys, depth_keys)):
+        for i, (pixel_key, depth_key) in enumerate(zip(self.pixel_keys, depth_keys, strict=True)):
             x = observations[pixel_key].astype(jnp.float32) / 255.0
             if depth_key is not None:
                 # The last dim is always for stacking, even if it's 1.
@@ -56,5 +55,4 @@ class PixelMultiplexer(nn.Module):
 
         if actions is None:
             return self.network_cls()(x, training)
-        else:
-            return self.network_cls()(x, actions, training)
+        return self.network_cls()(x, actions, training)

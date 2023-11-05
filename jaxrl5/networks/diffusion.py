@@ -24,7 +24,7 @@ def linear_beta_schedule(timesteps, beta_start=1e-4, beta_end=2e-2):
 
 def vp_beta_schedule(timesteps):
     t = jnp.arange(1, timesteps + 1)
-    T = timesteps
+    T = timesteps  # noqa: N806
     b_max = 10.0
     b_min = 0.1
     alpha = jnp.exp(-b_min / T - 0.5 * (b_max - b_min) * (2 * t - 1) / T**2)
@@ -81,7 +81,7 @@ class DDPM(nn.Module):
 def ddpm_sampler(
     actor_apply_fn,
     actor_params,
-    T,
+    T,  # noqa: N803
     rng,
     act_dim,
     observations,

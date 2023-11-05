@@ -17,8 +17,10 @@ dependencies = [
 
 [tool.ruff]
 line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
 select = ["ALL"]
-ignore-init-module-imports = true
 ignore = [
     "D",
     "ANN",
@@ -30,8 +32,7 @@ ignore = [
     "COM812", # conflict
     "ISC001" # conflict
 ]
+ignore-init-module-imports = true
+pycodestyle.ignore-overlong-task-comments = true
 
-target-version = "py311"
 
-[tool.black]
-line-length = 100

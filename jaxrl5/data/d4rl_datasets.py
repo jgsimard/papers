@@ -10,7 +10,7 @@ class D4RLDataset(Dataset):
     def __init__(self, env: gym.Env, clip_to_eps: bool = True, eps: float = 1e-5):
         try:
             dataset_dict = d4rl.qlearning_dataset(env)
-        except:
+        except:  # noqa: E722
             dataset_dict = mjrl.qlearning_dataset(env)
 
         if clip_to_eps:

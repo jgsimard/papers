@@ -1,5 +1,5 @@
 import contextlib
-import os
+from pathlib import Path
 
 import gym
 
@@ -9,8 +9,7 @@ import numpy as np
 
 from jaxrl5.data.dataset import Dataset
 
-# AWAC_DATA_DIR = "~/.datasets/awac_data"
-AWAC_DATA_DIR = "/global/scratch/users/hansenpmeche/datasets/awac_data"
+AWAC_DATA_DIR = "~/.datasets/awac_data"
 
 
 def process_expert_dataset(expert_datset):
@@ -62,11 +61,11 @@ class BinaryDataset(Dataset):
         env_prefix = env.spec.name.split("-")[0]
 
         expert_dataset = np.load(
-            os.path.join(os.path.expanduser(AWAC_DATA_DIR), f"{env_prefix}2_sparse.npy"),
+            Path(AWAC_DATA_DIR) / f"{env_prefix}2_sparse.npy",
             allow_pickle=True,
         )
 
-        # this seems super random, but I grabbed it from here: https://github.com/rail-berkeley/rlkit/blob/c81509d982b4d52a6239e7bfe7d2540e3d3cd986/rlkit/launchers/experiments/awac/awac_rl.py#L124 and here https://github.com/rail-berkeley/rlkit/blob/354f14c707cc4eb7ed876215dd6235c6b30a2e2b/rlkit/demos/source/dict_to_mdp_path_loader.py#L153
+        # this seems super random, but I grabbed it from here: https://github.com/rail-berkeley/rlkit/blob/c81509d982b4d52a6239e7bfe7d2540e3d3cd986/rlkit/launchers/experiments/awac/awac_rl.py#L124 and here https://github.com/rail-berkeley/rlkit/blob/354f14c707cc4eb7ed876215dd6235c6b30a2e2b/rlkit/demos/source/dict_to_mdp_path_loader.py#L153 # noqa: E501
         dataset_split = 0.9
         last_train_idx = int(dataset_split * len(expert_dataset))
 
@@ -74,11 +73,11 @@ class BinaryDataset(Dataset):
 
         if include_bc_data:
             bc_dataset = np.load(
-                os.path.join(os.path.expanduser(AWAC_DATA_DIR), f"{env_prefix}_bc_sparse4.npy"),
+                Path(AWAC_DATA_DIR) / f"{env_prefix}_bc_sparse4.npy",
                 allow_pickle=True,
             )
 
-            # this seems super random, but I grabbed it from here: https://github.com/rail-berkeley/rlkit/blob/c81509d982b4d52a6239e7bfe7d2540e3d3cd986/rlkit/launchers/experiments/awac/awac_rl.py#L124 and here https://github.com/rail-berkeley/rlkit/blob/354f14c707cc4eb7ed876215dd6235c6b30a2e2b/rlkit/demos/source/dict_to_mdp_path_loader.py#L153
+            # this seems super random, but I grabbed it from here: https://github.com/rail-berkeley/rlkit/blob/c81509d982b4d52a6239e7bfe7d2540e3d3cd986/rlkit/launchers/experiments/awac/awac_rl.py#L124 and here https://github.com/rail-berkeley/rlkit/blob/354f14c707cc4eb7ed876215dd6235c6b30a2e2b/rlkit/demos/source/dict_to_mdp_path_loader.py#L153 # noqa: E501
             bc_dataset_split = 0.9
             bc_dataset = bc_dataset[: int(bc_dataset_split * len(bc_dataset))]
             bc_dataset = process_bc_dataset(bc_dataset)
