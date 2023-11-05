@@ -1,8 +1,9 @@
 """Implementations of algorithms for continuous control."""
 
 import math
+from collections.abc import Sequence
 from functools import partial
-from typing import Dict, Optional, Sequence, Tuple, Union
+from typing import Optional, Union
 
 import flax
 import gym
@@ -18,9 +19,7 @@ from jaxrl5.networks import MLP
 
 
 def get_weight_decay_mask(params):
-    flattened_params = flax.traverse_util.flatten_dict(
-        flax.core.frozen_dict.unfreeze(params)
-    )
+    flattened_params = flax.traverse_util.flatten_dict(flax.core.frozen_dict.unfreeze(params))
 
     def decay(k, v):
         if any([(key == "bias") for key in k]):
@@ -29,9 +28,7 @@ def get_weight_decay_mask(params):
             return True
 
     return flax.core.frozen_dict.freeze(
-        flax.traverse_util.unflatten_dict(
-            {k: decay(k, v) for k, v in flattened_params.items()}
-        )
+        flax.traverse_util.unflatten_dict({k: decay(k, v) for k, v in flattened_params.items()})
     )
 
 
@@ -90,7 +87,7 @@ class BCLearner(Agent):
     def update(self, batch: DatasetDict):
         rng, key1, key2 = jax.random.split(self.rng, 3)
 
-        def loss_fn(actor_params) -> Tuple[jnp.ndarray, Dict[str, float]]:
+        def loss_fn(actor_params) -> tuple[jnp.ndarray, dict[str, float]]:
             dist = self.actor.apply_fn(
                 {"params": actor_params},
                 batch["observations"],

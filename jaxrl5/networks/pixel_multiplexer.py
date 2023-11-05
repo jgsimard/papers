@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Tuple, Type, Union
+from typing import Optional, Union
 
 import flax.linen as nn
 import jax
@@ -9,17 +9,17 @@ from jaxrl5.networks import default_init
 
 
 class PixelMultiplexer(nn.Module):
-    encoder_cls: Type[nn.Module]
-    network_cls: Type[nn.Module]
+    encoder_cls: type[nn.Module]
+    network_cls: type[nn.Module]
     latent_dim: int
     stop_gradient: bool = False
-    pixel_keys: Tuple[str, ...] = ("pixels",)
-    depth_keys: Tuple[str, ...] = ()
+    pixel_keys: tuple[str, ...] = ("pixels",)
+    depth_keys: tuple[str, ...] = ()
 
     @nn.compact
     def __call__(
         self,
-        observations: Union[FrozenDict, Dict],
+        observations: Union[FrozenDict, dict],
         actions: Optional[jnp.ndarray] = None,
         training: bool = False,
     ) -> jnp.ndarray:
@@ -52,9 +52,7 @@ class PixelMultiplexer(nn.Module):
         x = jnp.concatenate(xs, axis=-1)
 
         if "state" in observations:
-            y = nn.Dense(self.latent_dim, kernel_init=default_init())(
-                observations["state"]
-            )
+            y = nn.Dense(self.latent_dim, kernel_init=default_init())(observations["state"])
             y = nn.LayerNorm()(y)
             y = nn.tanh(y)
 

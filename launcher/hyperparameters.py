@@ -1,25 +1,22 @@
 import copy
-from typing import Dict, List, Optional, Sequence
 
 import numpy as np
 
 
 def set_hyperparameters(
     hyperparameter: dict,
-    variants: List[dict],
-    group_keys: List = None,
+    variants: list[dict],
+    group_keys: list = None,
 ):
-
     if len(hyperparameter.keys()) == 0:
         for variant in variants:
             if group_keys is not None:
-                group_name = ''
+                group_name = ""
                 for key in group_keys:
-                    group_name += str(variant[key]) + '_'
+                    group_name += str(variant[key]) + "_"
 
-                variant['group'] = group_name
-                variant['seed'] = np.random.randint(999999)
-            
+                variant["group"] = group_name
+                variant["seed"] = np.random.randint(999999)
 
         return variants
     else:

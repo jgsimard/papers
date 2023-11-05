@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import Optional
 
 import gym
 from gym.wrappers.pixel_observation import PixelObservationWrapper
@@ -14,7 +14,7 @@ def wrap_pixels(
     image_size: int = 84,
     num_stack: Optional[int] = 3,
     camera_id: int = 0,
-    pixel_keys: Tuple[str, ...] = ("pixels",),
+    pixel_keys: tuple[str, ...] = ("pixels",),
 ) -> gym.Env:
     if action_repeat > 1:
         env = RepeatAction(env, action_repeat)

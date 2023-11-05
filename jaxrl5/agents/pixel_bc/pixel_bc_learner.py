@@ -1,8 +1,9 @@
 """Implementations of algorithms for continuous control."""
 
+from collections.abc import Callable, Sequence
 from functools import partial
 from itertools import zip_longest
-from typing import Callable, Optional, Sequence, Tuple, Union
+from typing import Optional, Union
 
 import gym
 import jax
@@ -13,7 +14,6 @@ from flax.training.train_state import TrainState
 from jaxrl5.agents.bc.bc_learner import BCLearner
 from jaxrl5.agents.drq.augmentations import batched_random_crop
 from jaxrl5.data.dataset import DatasetDict
-from jaxrl5.distributions import TanhNormal
 from jaxrl5.networks import MLP, PixelMultiplexer
 from jaxrl5.networks.encoders import D4PGEncoder, ResNetV2Encoder
 
@@ -39,8 +39,8 @@ class PixelBCLearner(BCLearner):
         dropout_rate: Optional[float] = None,
         distr_name: str = "TanhNormal",
         entropy_bonus: Optional[float] = None,
-        pixel_keys: Tuple[str, ...] = ("pixels",),
-        depth_keys: Tuple[str, ...] = (),
+        pixel_keys: tuple[str, ...] = ("pixels",),
+        depth_keys: tuple[str, ...] = (),
     ):
         """
         An implementation of the version of Soft-Actor-Critic described in https://arxiv.org/abs/1812.05905
@@ -70,9 +70,7 @@ class PixelBCLearner(BCLearner):
             dropout_rate=dropout_rate,
             use_layer_norm=use_layer_norm,
         )
-        actor_cls = partial(
-            globals()[distr_name], base_cls=actor_base_cls, action_dim=action_dim
-        )
+        actor_cls = partial(globals()[distr_name], base_cls=actor_base_cls, action_dim=action_dim)
         actor_cls = PixelMultiplexer(
             encoder_cls=encoder_cls,
             network_cls=actor_cls,

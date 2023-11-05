@@ -1,8 +1,9 @@
 """Implementations of algorithms for continuous control."""
 
+from collections.abc import Callable, Sequence
 from functools import partial
 from itertools import zip_longest
-from typing import Callable, Optional, Sequence, Tuple
+from typing import Optional
 
 import gym
 import jax
@@ -28,13 +29,9 @@ def _unpack(batch):
             next_obs_pixels = batch["observations"][pixel_key][..., 1:]
 
             obs = batch["observations"].copy(add_or_replace={pixel_key: obs_pixels})
-            next_obs = batch["next_observations"].copy(
-                add_or_replace={pixel_key: next_obs_pixels}
-            )
+            next_obs = batch["next_observations"].copy(add_or_replace={pixel_key: next_obs_pixels})
 
-    batch = batch.copy(
-        add_or_replace={"observations": obs, "next_observations": next_obs}
-    )
+    batch = batch.copy(add_or_replace={"observations": obs, "next_observations": next_obs})
 
     return batch
 
@@ -79,8 +76,8 @@ class DrQLearner(SACLearner):
         target_entropy: Optional[float] = None,
         init_temperature: float = 1.0,
         backup_entropy: bool = True,
-        pixel_keys: Tuple[str, ...] = ("pixels",),
-        depth_keys: Tuple[str, ...] = (),
+        pixel_keys: tuple[str, ...] = ("pixels",),
+        depth_keys: tuple[str, ...] = (),
     ):
         """
         An implementation of the version of Soft-Actor-Critic described in https://arxiv.org/abs/1812.05905

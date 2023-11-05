@@ -1,7 +1,8 @@
 import d4rl
 import gym
-import numpy as np
 import mjrl
+import numpy as np
+
 from jaxrl5.data.dataset import Dataset
 
 
@@ -21,8 +22,7 @@ class D4RLDataset(Dataset):
         for i in range(len(dones) - 1):
             if (
                 np.linalg.norm(
-                    dataset_dict["observations"][i + 1]
-                    - dataset_dict["next_observations"][i]
+                    dataset_dict["observations"][i + 1] - dataset_dict["next_observations"][i]
                 )
                 > 1e-6
                 or dataset_dict["terminals"][i] == 1.0

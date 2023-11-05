@@ -1,7 +1,8 @@
 """Implementations of algorithms for continuous control."""
 
+from collections.abc import Sequence
 from functools import partial
-from typing import Dict, Optional, Sequence, Tuple
+from typing import Optional
 
 import gym
 import jax
@@ -131,13 +132,11 @@ class TD3Learner(Agent):
             actor_delay=actor_delay,
         )
 
-    def update_actor(self, batch: DatasetDict) -> Tuple[Agent, Dict[str, float]]:
+    def update_actor(self, batch: DatasetDict) -> tuple[Agent, dict[str, float]]:
         key, rng = jax.random.split(self.rng, num=2)
 
-        def actor_loss_fn(actor_params) -> Tuple[jnp.ndarray, Dict[str, float]]:
-            actions = self.actor.apply_fn(
-                {"params": actor_params}, batch["observations"]
-            )
+        def actor_loss_fn(actor_params) -> tuple[jnp.ndarray, dict[str, float]]:
+            actions = self.actor.apply_fn({"params": actor_params}, batch["observations"])
             qs = self.critic.apply_fn(
                 {"params": self.critic.params},
                 batch["observations"],
@@ -162,8 +161,7 @@ class TD3Learner(Agent):
 
         return self.replace(actor=actor, target_actor=target_actor, rng=rng), actor_info
 
-    def update_critic(self, batch: DatasetDict) -> Tuple[TrainState, Dict[str, float]]:
-
+    def update_critic(self, batch: DatasetDict) -> tuple[TrainState, dict[str, float]]:
         next_actions = self.target_actor.apply_fn(
             {"params": self.target_actor.params}, batch["next_observations"]
         )
@@ -171,9 +169,7 @@ class TD3Learner(Agent):
         rng = self.rng
 
         key, rng = jax.random.split(rng)
-        target_noise = (
-            jax.random.normal(key, next_actions.shape) * self.target_policy_noise
-        )
+        target_noise = jax.random.normal(key, next_actions.shape) * self.target_policy_noise
         target_noise = target_noise.clip(
             -self.target_policy_noise_clip, self.target_policy_noise_clip
         )
@@ -199,7 +195,7 @@ class TD3Learner(Agent):
 
         key, rng = jax.random.split(rng)
 
-        def critic_loss_fn(critic_params) -> Tuple[jnp.ndarray, Dict[str, float]]:
+        def critic_loss_fn(critic_params) -> tuple[jnp.ndarray, dict[str, float]]:
             qs = self.critic.apply_fn(
                 {"params": critic_params},
                 batch["observations"],
@@ -222,7 +218,6 @@ class TD3Learner(Agent):
 
     @partial(jax.jit, static_argnames="utd_ratio")
     def update(self, batch: DatasetDict, utd_ratio: int):
-
         new_agent = self
         for i in range(utd_ratio):
 

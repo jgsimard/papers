@@ -1,8 +1,9 @@
 """Implementations of algorithms for continuous control."""
 
 import math
+from collections.abc import Sequence
 from functools import partial
-from typing import Dict, Optional, Sequence, Tuple, Union
+from typing import Union
 
 import gym
 import jax
@@ -46,7 +47,6 @@ class IQLLearner(Agent):
         temperature: float = 0.1,
         num_qs: int = 2,
     ):
-
         rng = jax.random.PRNGKey(seed)
         rng, actor_key, critic_key, value_key = jax.random.split(rng, 4)
         actions = action_space.sample()
@@ -65,9 +65,7 @@ class IQLLearner(Agent):
         actor_params = actor_def.init(actor_key, observations)["params"]
 
         actor_optimiser = optax.adam(learning_rate=actor_lr)
-        actor = TrainState.create(
-            apply_fn=actor_def.apply, params=actor_params, tx=actor_optimiser
-        )
+        actor = TrainState.create(apply_fn=actor_def.apply, params=actor_params, tx=actor_optimiser)
 
         critic_base_cls = partial(MLP, hidden_dims=hidden_dims, activate_final=True)
         critic_cls = partial(StateActionValue, base_cls=critic_base_cls)
@@ -87,9 +85,7 @@ class IQLLearner(Agent):
         value_params = value_def.init(value_key, observations)["params"]
 
         value_optimiser = optax.adam(learning_rate=value_lr)
-        value = TrainState.create(
-            apply_fn=value_def.apply, params=value_params, tx=value_optimiser
-        )
+        value = TrainState.create(apply_fn=value_def.apply, params=value_params, tx=value_optimiser)
 
         return cls(
             actor=actor,
@@ -103,7 +99,7 @@ class IQLLearner(Agent):
             rng=rng,
         )
 
-    def update_v(agent, batch: DatasetDict) -> Tuple[Agent, Dict[str, float]]:
+    def update_v(agent, batch: DatasetDict) -> tuple[Agent, dict[str, float]]:
         q1, q2 = agent.target_critic.apply_fn(
             {"params": agent.target_critic.params},
             batch["observations"],
@@ -111,7 +107,7 @@ class IQLLearner(Agent):
         )
         q = jnp.minimum(q1, q2)
 
-        def value_loss_fn(value_params) -> Tuple[jnp.ndarray, Dict[str, float]]:
+        def value_loss_fn(value_params) -> tuple[jnp.ndarray, dict[str, float]]:
             v = agent.value.apply_fn({"params": value_params}, batch["observations"])
             value_loss = loss(q - v, agent.expectile).mean()
             return value_loss, {"value_loss": value_loss, "v": v.mean()}
@@ -123,14 +119,12 @@ class IQLLearner(Agent):
 
         return agent, info
 
-    def update_q(agent, batch: DatasetDict) -> Tuple[Agent, Dict[str, float]]:
-        next_v = agent.value.apply_fn(
-            {"params": agent.value.params}, batch["next_observations"]
-        )
+    def update_q(agent, batch: DatasetDict) -> tuple[Agent, dict[str, float]]:
+        next_v = agent.value.apply_fn({"params": agent.value.params}, batch["next_observations"])
 
         target_q = batch["rewards"] + agent.discount * batch["masks"] * next_v
 
-        def critic_loss_fn(critic_params) -> Tuple[jnp.ndarray, Dict[str, float]]:
+        def critic_loss_fn(critic_params) -> tuple[jnp.ndarray, dict[str, float]]:
             q1, q2 = agent.critic.apply_fn(
                 {"params": critic_params}, batch["observations"], batch["actions"]
             )
@@ -154,7 +148,7 @@ class IQLLearner(Agent):
         new_agent = agent.replace(critic=critic, target_critic=target_critic)
         return new_agent, info
 
-    def update_actor(agent, batch: DatasetDict) -> Tuple[Agent, Dict[str, float]]:
+    def update_actor(agent, batch: DatasetDict) -> tuple[Agent, dict[str, float]]:
         v = agent.value.apply_fn({"params": agent.value.params}, batch["observations"])
 
         q1, q2 = agent.target_critic.apply_fn(
@@ -166,7 +160,7 @@ class IQLLearner(Agent):
         exp_a = jnp.exp((q - v) * agent.temperature)
         exp_a = jnp.minimum(exp_a, 100.0)
 
-        def actor_loss_fn(actor_params) -> Tuple[jnp.ndarray, Dict[str, float]]:
+        def actor_loss_fn(actor_params) -> tuple[jnp.ndarray, dict[str, float]]:
             dist = agent.actor.apply_fn(
                 {"params": actor_params}, batch["observations"], training=True
             )
@@ -185,7 +179,6 @@ class IQLLearner(Agent):
 
     @jax.jit
     def update(self, batch: DatasetDict):
-
         new_agent = self
 
         new_agent, critic_info = new_agent.update_v(batch)

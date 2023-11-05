@@ -1,19 +1,17 @@
-
-
 import os
 
 import gym
 
 try:
-    import mj_envs
+    pass
 except:
     pass
 import numpy as np
 
 from jaxrl5.data.dataset import Dataset
 
-#AWAC_DATA_DIR = "~/.datasets/awac_data"
-AWAC_DATA_DIR = "/global/scratch/users/hansenpmeche/datasets/awac_data" 
+# AWAC_DATA_DIR = "~/.datasets/awac_data"
+AWAC_DATA_DIR = "/global/scratch/users/hansenpmeche/datasets/awac_data"
 
 
 def process_expert_dataset(expert_datset):
@@ -25,9 +23,7 @@ def process_expert_dataset(expert_datset):
     all_terminals = []
 
     for x in expert_datset:
-        all_observations.append(
-            np.vstack([xx["state_observation"] for xx in x["observations"]])
-        )
+        all_observations.append(np.vstack([xx["state_observation"] for xx in x["observations"]]))
         all_next_observations.append(
             np.vstack([xx["state_observation"] for xx in x["next_observations"]])
         )
@@ -52,10 +48,7 @@ def process_bc_dataset(bc_dataset):
         for k in final_bc_dataset:
             final_bc_dataset[k].append(x[k])
 
-    return {
-        k: np.concatenate(v, dtype=np.float32).squeeze()
-        for k, v in final_bc_dataset.items()
-    }
+    return {k: np.concatenate(v, dtype=np.float32).squeeze() for k, v in final_bc_dataset.items()}
 
 
 class BinaryDataset(Dataset):
@@ -67,13 +60,10 @@ class BinaryDataset(Dataset):
         remove_terminals=True,
         include_bc_data=True,
     ):
-
         env_prefix = env.spec.name.split("-")[0]
 
         expert_dataset = np.load(
-            os.path.join(
-                os.path.expanduser(AWAC_DATA_DIR), f"{env_prefix}2_sparse.npy"
-            ),
+            os.path.join(os.path.expanduser(AWAC_DATA_DIR), f"{env_prefix}2_sparse.npy"),
             allow_pickle=True,
         )
 
@@ -85,9 +75,7 @@ class BinaryDataset(Dataset):
 
         if include_bc_data:
             bc_dataset = np.load(
-                os.path.join(
-                    os.path.expanduser(AWAC_DATA_DIR), f"{env_prefix}_bc_sparse4.npy"
-                ),
+                os.path.join(os.path.expanduser(AWAC_DATA_DIR), f"{env_prefix}_bc_sparse4.npy"),
                 allow_pickle=True,
             )
 
@@ -97,8 +85,7 @@ class BinaryDataset(Dataset):
             bc_dataset = process_bc_dataset(bc_dataset)
 
             dataset_dict = {
-                k: np.concatenate([dataset_dict[k], bc_dataset[k]])
-                for k in dataset_dict
+                k: np.concatenate([dataset_dict[k], bc_dataset[k]]) for k in dataset_dict
             }
 
         if clip_to_eps:
@@ -110,8 +97,7 @@ class BinaryDataset(Dataset):
         for i in range(len(dones) - 1):
             if (
                 np.linalg.norm(
-                    dataset_dict["observations"][i + 1]
-                    - dataset_dict["next_observations"][i]
+                    dataset_dict["observations"][i + 1] - dataset_dict["next_observations"][i]
                 )
                 > 1e-6
                 or dataset_dict["terminals"][i] == 1.0
