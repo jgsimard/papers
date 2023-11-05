@@ -6,7 +6,7 @@ import numpy as np
 def set_hyperparameters(
     hyperparameter: dict,
     variants: list[dict],
-    group_keys: list = None,
+    group_keys: list | None = None,
 ):
     if len(hyperparameter.keys()) == 0:
         for variant in variants:
@@ -21,7 +21,7 @@ def set_hyperparameters(
         return variants
     else:
         new_variants = []
-        k = list(hyperparameter.keys())[0]
+        k = next(iter(hyperparameter.keys()))
         for item in hyperparameter[k]:
             for variant in variants:
                 new_variant = copy.deepcopy(variant)

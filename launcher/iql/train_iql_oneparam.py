@@ -8,28 +8,28 @@ flags.DEFINE_integer("variant", 0, "Logging interval.")
 
 
 def main(_):
-    constant_parameters = dict(
-        project="iql_one_param",
-        experiment_name="iql",
-        max_steps=1500001,
-        batch_size=256,
-        eval_episodes=50,
-        log_interval=1000,
-        eval_interval=100000,
-        save_video=False,
-        filter_threshold=None,
-        take_top=None,
-        normalize_returns=True,
-        rl_config=dict(
-            model_cls="IQLLearner",
-            actor_lr=3e-4,
-            critic_lr=3e-4,
-            value_lr=3e-4,
-        ),
-    )
+    constant_parameters = {
+        "project": "iql_one_param",
+        "experiment_name": "iql",
+        "max_steps": 1500001,
+        "batch_size": 256,
+        "eval_episodes": 50,
+        "log_interval": 1000,
+        "eval_interval": 100000,
+        "save_video": False,
+        "filter_threshold": None,
+        "take_top": None,
+        "normalize_returns": True,
+        "rl_config": {
+            "model_cls": "IQLLearner",
+            "actor_lr": 3e-4,
+            "critic_lr": 3e-4,
+            "value_lr": 3e-4,
+        },
+    }
 
-    sweep_parameters = dict(
-        env_name=[
+    sweep_parameters = {
+        "env_name": [
             "walker2d-medium-expert-v2",
             "halfcheetah-medium-replay-v2",
             "hopper-medium-expert-v2",
@@ -49,9 +49,9 @@ def main(_):
             "maze2d-medium-v1",
             "maze2d-large-v1",
         ],
-        temperature=[3, 6.5, 10],
-        seed=list(range(5)),
-    )
+        "temperature": [3, 6.5, 10],
+        "seed": list(range(5)),
+    }
 
     variants = [constant_parameters]
     name_keys = ["experiment_name", "env_name", "temperature"]

@@ -3,7 +3,6 @@
 from collections.abc import Callable, Sequence
 from functools import partial
 from itertools import zip_longest
-from typing import Optional, Union
 
 import gym
 import jax
@@ -27,7 +26,7 @@ class PixelBCLearner(BCLearner):
         seed: int,
         observation_space: gym.Space,
         action_space: gym.Space,
-        actor_lr: Union[float, optax.Schedule] = 1e-3,
+        actor_lr: float | optax.Schedule = 1e-3,
         cnn_features: Sequence[int] = (32, 32, 32, 32),
         cnn_filters: Sequence[int] = (3, 3, 3, 3),
         cnn_strides: Sequence[int] = (2, 1, 1, 1),
@@ -36,9 +35,9 @@ class PixelBCLearner(BCLearner):
         encoder: str = "d4pg",
         hidden_dims: Sequence[int] = (256, 256),
         use_layer_norm: bool = False,
-        dropout_rate: Optional[float] = None,
+        dropout_rate: float | None = None,
         distr_name: str = "TanhNormal",
-        entropy_bonus: Optional[float] = None,
+        entropy_bonus: float | None = None,
         pixel_keys: tuple[str, ...] = ("pixels",),
         depth_keys: tuple[str, ...] = (),
     ):

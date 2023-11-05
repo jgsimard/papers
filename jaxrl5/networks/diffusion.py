@@ -19,8 +19,7 @@ def cosine_beta_schedule(timesteps, s=0.008):
 
 
 def linear_beta_schedule(timesteps, beta_start=1e-4, beta_end=2e-2):
-    betas = jnp.linspace(beta_start, beta_end, timesteps)
-    return betas
+    return jnp.linspace(beta_start, beta_end, timesteps)
 
 
 def vp_beta_schedule(timesteps):
@@ -29,8 +28,7 @@ def vp_beta_schedule(timesteps):
     b_max = 10.0
     b_min = 0.1
     alpha = jnp.exp(-b_min / T - 0.5 * (b_max - b_min) * (2 * t - 1) / T**2)
-    betas = 1 - alpha
-    return betas
+    return 1 - alpha
 
 
 class FourierFeatures(nn.Module):

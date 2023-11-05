@@ -3,7 +3,6 @@
 import math
 from collections.abc import Sequence
 from functools import partial
-from typing import Union
 
 import gym
 import jax
@@ -37,7 +36,7 @@ class IQLLearner(Agent):
         seed: int,
         observation_space: gym.spaces.Space,
         action_space: gym.spaces.Box,
-        actor_lr: Union[float, optax.Schedule] = 1e-3,
+        actor_lr: float | optax.Schedule = 1e-3,
         critic_lr: float = 3e-4,
         value_lr: float = 3e-4,
         hidden_dims: Sequence[int] = (256, 256),

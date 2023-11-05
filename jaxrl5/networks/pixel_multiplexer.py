@@ -1,4 +1,3 @@
-from typing import Optional, Union
 
 import flax.linen as nn
 import jax
@@ -19,15 +18,12 @@ class PixelMultiplexer(nn.Module):
     @nn.compact
     def __call__(
         self,
-        observations: Union[FrozenDict, dict],
-        actions: Optional[jnp.ndarray] = None,
+        observations: FrozenDict | dict,
+        actions: jnp.ndarray | None = None,
         training: bool = False,
     ) -> jnp.ndarray:
         observations = FrozenDict(observations)
-        if len(self.depth_keys) == 0:
-            depth_keys = [None] * len(self.pixel_keys)
-        else:
-            depth_keys = self.depth_keys
+        depth_keys = [None] * len(self.pixel_keys) if len(self.depth_keys) == 0 else self.depth_keys
 
         xs = []
         for i, (pixel_key, depth_key) in enumerate(zip(self.pixel_keys, depth_keys)):

@@ -1,7 +1,6 @@
 """Implementations of algorithms for continuous control."""
 from collections.abc import Sequence
 from functools import partial
-from typing import Optional, Union
 
 import flax.linen as nn
 import gym
@@ -63,14 +62,12 @@ def exponential_loss(diff, beta, clip=jnp.log(6), mode="zero"):
 @partial(jax.jit, static_argnames=("critic_fn"))
 def compute_q(critic_fn, critic_params, observations, actions):
     q_values = critic_fn({"params": critic_params}, observations, actions)
-    q_values = q_values.min(axis=0)
-    return q_values
+    return q_values.min(axis=0)
 
 
 @partial(jax.jit, static_argnames=("value_fn"))
 def compute_v(value_fn, value_params, observations):
-    v_values = value_fn({"params": value_params}, observations)
-    return v_values
+    return value_fn({"params": value_params}, observations)
 
 
 def mish(x):
@@ -107,7 +104,7 @@ class DDPMIQLLearner(Agent):
         observation_space: gym.spaces.Space,
         action_space: gym.spaces.Box,
         actor_architecture: str = "mlp",
-        actor_lr: Union[float, optax.Schedule] = 3e-4,
+        actor_lr: float | optax.Schedule = 3e-4,
         critic_lr: float = 3e-4,
         value_lr: float = 3e-4,
         critic_hidden_dims: Sequence[int] = (256, 256),
@@ -118,9 +115,9 @@ class DDPMIQLLearner(Agent):
         ddpm_temperature: float = 1.0,
         num_qs: int = 2,
         actor_num_blocks: int = 2,
-        actor_weight_decay: Optional[float] = None,
+        actor_weight_decay: float | None = None,
         actor_tau: float = 0.001,
-        actor_dropout_rate: Optional[float] = None,
+        actor_dropout_rate: float | None = None,
         actor_layer_norm: bool = False,
         policy_temperature: float = 3.0,
         T: int = 5,
@@ -131,7 +128,7 @@ class DDPMIQLLearner(Agent):
         actor_objective: str = "bc",
         critic_objective: str = "expectile",
         beta_schedule: str = "vp",
-        decay_steps: Optional[int] = int(2e6),
+        decay_steps: int | None = int(2e6),
     ):
         rng = jax.random.PRNGKey(seed)
         rng, actor_key, critic_key, value_key = jax.random.split(rng, 4)
@@ -151,7 +148,7 @@ class DDPMIQLLearner(Agent):
         if actor_architecture == "mlp":
             base_model_cls = partial(
                 MLP,
-                hidden_dims=tuple(list(actor_hidden_dims) + [action_dim]),
+                hidden_dims=(*list(actor_hidden_dims), action_dim),
                 activations=mish,
                 use_layer_norm=actor_layer_norm,
                 activate_final=False,
@@ -180,7 +177,8 @@ class DDPMIQLLearner(Agent):
             )
 
         else:
-            raise ValueError(f"Invalid actor architecture: {actor_architecture}")
+            msg = f"Invalid actor architecture: {actor_architecture}"
+            raise ValueError(msg)
 
         time = jnp.zeros((1, 1))
         observations = jnp.expand_dims(observations, axis=0)
@@ -230,7 +228,8 @@ class DDPMIQLLearner(Agent):
         elif beta_schedule == "vp":
             betas = jnp.array(vp_beta_schedule(T))
         else:
-            raise ValueError(f"Invalid beta schedule: {beta_schedule}")
+            msg = f"Invalid beta schedule: {beta_schedule}"
+            raise ValueError(msg)
 
         alphas = 1 - betas
         alpha_hat = jnp.array([jnp.prod(alphas[: i + 1]) for i in range(T)])
@@ -279,7 +278,8 @@ class DDPMIQLLearner(Agent):
             elif agent.critic_objective == "exponential":
                 value_loss = exponential_loss(q - v, agent.critic_hyperparam).mean()
             else:
-                raise ValueError(f"Invalid critic objective: {agent.critic_objective}")
+                msg = f"Invalid critic objective: {agent.critic_objective}"
+                raise ValueError(msg)
 
             return value_loss, {"value_loss": value_loss, "v": v.mean()}
 
@@ -294,7 +294,6 @@ class DDPMIQLLearner(Agent):
         next_v = agent.value.apply_fn({"params": agent.value.params}, batch["next_observations"])
 
         target_q = batch["rewards"] + agent.discount * batch["masks"] * next_v
-        batch_size = batch["observations"].shape[0]
 
         def critic_loss_fn(critic_params) -> tuple[jnp.ndarray, dict[str, float]]:
             qs = agent.critic.apply_fn(
@@ -357,7 +356,8 @@ class DDPMIQLLearner(Agent):
         elif agent.actor_objective == "bc":
             weights = jnp.ones(adv.shape)
         else:
-            raise ValueError(f"Invalid actor objective: {agent.actor_objective}")
+            msg = f"Invalid actor objective: {agent.actor_objective}"
+            raise ValueError(msg)
 
         def actor_loss_fn(score_model_params) -> tuple[jnp.ndarray, dict[str, float]]:
             eps_pred = agent.score_model.apply_fn(
@@ -465,7 +465,8 @@ class DDPMIQLLearner(Agent):
             sample_idx = jax.random.choice(key, self.N, p=weights)
             action = actions[sample_idx]
         else:
-            raise ValueError(f"Invalid critic objective: {self.critic_objective}")
+            msg = f"Invalid critic objective: {self.critic_objective}"
+            raise ValueError(msg)
 
         new_rng = rng
 

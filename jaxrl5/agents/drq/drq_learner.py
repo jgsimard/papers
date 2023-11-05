@@ -3,7 +3,6 @@
 from collections.abc import Callable, Sequence
 from functools import partial
 from itertools import zip_longest
-from typing import Optional
 
 import gym
 import jax
@@ -23,7 +22,7 @@ from jaxrl5.networks.encoders import D4PGEncoder, ResNetV2Encoder
 # Helps to minimize CPU to GPU transfer.
 def _unpack(batch):
     # Assuming that if next_observation is missing, it's combined with observation:
-    for pixel_key in batch["observations"].keys():
+    for pixel_key in batch["observations"]:
         if pixel_key not in batch["next_observations"]:
             obs_pixels = batch["observations"][pixel_key][..., :-1]
             next_obs_pixels = batch["observations"][pixel_key][..., 1:]
@@ -31,9 +30,8 @@ def _unpack(batch):
             obs = batch["observations"].copy(add_or_replace={pixel_key: obs_pixels})
             next_obs = batch["next_observations"].copy(add_or_replace={pixel_key: next_obs_pixels})
 
-    batch = batch.copy(add_or_replace={"observations": obs, "next_observations": next_obs})
+    return batch.copy(add_or_replace={"observations": obs, "next_observations": next_obs})
 
-    return batch
 
 
 def _share_encoder(source, target):
@@ -70,10 +68,10 @@ class DrQLearner(SACLearner):
         discount: float = 0.99,
         tau: float = 0.005,
         num_qs: int = 2,
-        num_min_qs: Optional[int] = None,
-        critic_dropout_rate: Optional[float] = None,
+        num_min_qs: int | None = None,
+        critic_dropout_rate: float | None = None,
         critic_layer_norm: bool = False,
-        target_entropy: Optional[float] = None,
+        target_entropy: float | None = None,
         init_temperature: float = 1.0,
         backup_entropy: bool = True,
         pixel_keys: tuple[str, ...] = ("pixels",),

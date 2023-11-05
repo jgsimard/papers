@@ -1,10 +1,9 @@
+import contextlib
 import os
 
 import gym
 
-try:
-    pass
-except:
+with contextlib.suppress(Exception):
     pass
 import numpy as np
 
@@ -27,7 +26,7 @@ def process_expert_dataset(expert_datset):
         all_next_observations.append(
             np.vstack([xx["state_observation"] for xx in x["next_observations"]])
         )
-        all_actions.append(np.vstack([xx for xx in x["actions"]]))
+        all_actions.append(np.vstack(list(x["actions"])))
         # for some reason rewards has an extra entry, so in rlkit they just remove the last entry: https://github.com/rail-berkeley/rlkit/blob/354f14c707cc4eb7ed876215dd6235c6b30a2e2b/rlkit/demos/source/dict_to_mdp_path_loader.py#L84
         all_rewards.append(x["rewards"][:-1])
         all_terminals.append(x["terminals"])

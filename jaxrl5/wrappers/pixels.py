@@ -1,4 +1,3 @@
-from typing import Optional
 
 import gym
 from gym.wrappers.pixel_observation import PixelObservationWrapper
@@ -12,7 +11,7 @@ def wrap_pixels(
     env: gym.Env,
     action_repeat: int,
     image_size: int = 84,
-    num_stack: Optional[int] = 3,
+    num_stack: int | None = 3,
     camera_id: int = 0,
     pixel_keys: tuple[str, ...] = ("pixels",),
 ) -> gym.Env:

@@ -2,7 +2,6 @@
 
 from collections.abc import Sequence
 from functools import partial
-from typing import Optional
 
 import gym
 import jax
@@ -41,7 +40,7 @@ class TD3Learner(Agent):
     tau: float
     discount: float
     num_qs: int = struct.field(pytree_node=False)
-    num_min_qs: Optional[int] = struct.field(
+    num_min_qs: int | None = struct.field(
         pytree_node=False
     )  # See M in RedQ https://arxiv.org/abs/2101.05982
     exploration_noise: float = 0.1
@@ -61,8 +60,8 @@ class TD3Learner(Agent):
         discount: float = 0.99,
         tau: float = 0.005,
         num_qs: int = 2,
-        num_min_qs: Optional[int] = None,
-        critic_dropout_rate: Optional[float] = None,
+        num_min_qs: int | None = None,
+        critic_dropout_rate: float | None = None,
         critic_layer_norm: bool = False,
         exploration_noise: float = 0.1,
         target_policy_noise: float = 0.2,

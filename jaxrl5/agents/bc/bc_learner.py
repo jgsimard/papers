@@ -3,7 +3,6 @@
 import math
 from collections.abc import Sequence
 from functools import partial
-from typing import Optional, Union
 
 import flax
 import gym
@@ -22,7 +21,7 @@ def get_weight_decay_mask(params):
     flattened_params = flax.traverse_util.flatten_dict(flax.core.frozen_dict.unfreeze(params))
 
     def decay(k, v):
-        if any([(key == "bias") for key in k]):
+        if any((key == "bias") for key in k):
             return False
         else:
             return True
@@ -33,7 +32,7 @@ def get_weight_decay_mask(params):
 
 
 class BCLearner(Agent):
-    entropy_bonus: Optional[float]
+    entropy_bonus: float | None
 
     @classmethod
     def create(
@@ -41,12 +40,12 @@ class BCLearner(Agent):
         seed: int,
         observation_space: gym.spaces.Space,
         action_space: gym.spaces.Box,
-        actor_lr: Union[float, optax.Schedule] = 1e-3,
+        actor_lr: float | optax.Schedule = 1e-3,
         hidden_dims: Sequence[int] = (256, 256),
         use_layer_norm: bool = False,
-        dropout_rate: Optional[float] = None,
-        weight_decay: Optional[float] = None,
-        entropy_bonus: Optional[float] = None,
+        dropout_rate: float | None = None,
+        weight_decay: float | None = None,
+        entropy_bonus: float | None = None,
     ):
         rng = jax.random.PRNGKey(seed)
         rng, actor_key = jax.random.split(rng)

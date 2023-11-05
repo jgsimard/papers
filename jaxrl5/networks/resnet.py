@@ -51,5 +51,4 @@ class MLPResNet(nn.Module):
             )(x, training=training)
 
         x = self.activations(x)
-        x = nn.Dense(self.out_dim, kernel_init=default_init())(x)
-        return x
+        return nn.Dense(self.out_dim, kernel_init=default_init())(x)
